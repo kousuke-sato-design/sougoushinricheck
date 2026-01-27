@@ -30,6 +30,12 @@ export async function sendEmail(
 	text: string,
 	html?: string
 ): Promise<boolean> {
+	// Skip email in Cloudflare Workers environment (nodemailer doesn't work with Workers)
+	if (typeof globalThis.caches !== 'undefined' && typeof (globalThis as unknown as Record<string, unknown>).process === 'undefined') {
+		console.log('Email skipped: Running in Cloudflare Workers environment');
+		return false;
+	}
+
 	const settings = await getEmailSettings();
 	if (!settings) {
 		console.log('Email settings not configured');

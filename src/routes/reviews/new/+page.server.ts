@@ -174,63 +174,71 @@ async function createReviewInternal(
 
 		// Send notifications if requested
 		if (sendNotifications) {
-			const emailSettings = await getEmailSettings();
+			try {
+				const emailSettings = await getEmailSettings();
 
-			for (const userId of assignees) {
-				// Create notification for assignee
-				await db.execute(
-					`INSERT INTO notifications (id, user_id, review_id, type, message)
-					 VALUES (:id, :userId, :reviewId, 'review_request', :message)`,
-					{
-						id: nanoid(),
-						userId,
-						reviewId,
-						message: `${locals.user.name}さんからレビュー依頼「${title}」が届きました`
-					}
-				);
-
-				// Send email with magic link
-				if (emailSettings) {
-					const userResult = await db.execute(
-						`SELECT email, name FROM users WHERE id = :userId`,
-						{ userId }
+				for (const userId of assignees) {
+					// Create notification for assignee
+					await db.execute(
+						`INSERT INTO notifications (id, user_id, review_id, type, message)
+						 VALUES (:id, :userId, :reviewId, 'review_request', :message)`,
+						{
+							id: nanoid(),
+							userId,
+							reviewId,
+							message: `${locals.user.name}さんからレビュー依頼「${title}」が届きました`
+						}
 					);
 
-					if (userResult.rows.length > 0) {
-						const assigneeUser = userResult.rows[0];
+					// Send email with magic link (fail silently if email doesn't work)
+					if (emailSettings) {
+						try {
+							const userResult = await db.execute(
+								`SELECT email, name FROM users WHERE id = :userId`,
+								{ userId }
+							);
 
-						const magicToken = await createMagicLink(userId, reviewId);
-						const magicLinkUrl = getMagicLinkUrl(magicToken, url.origin);
+							if (userResult.rows.length > 0) {
+								const assigneeUser = userResult.rows[0];
 
-						await sendEmail(
-							assigneeUser.email as string,
-							`[レビュー依頼] ${title}`,
-							`${locals.user.name}さんからレビュー依頼が届きました。\n\n以下のリンクをクリックしてレビューを確認してください。\n${magicLinkUrl}`,
-							`
-								<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-									<div style="background: linear-gradient(135deg, #3b82f6, #6366f1); padding: 24px; border-radius: 16px 16px 0 0;">
-										<h1 style="color: white; margin: 0; font-size: 24px;">レビュー依頼</h1>
-									</div>
-									<div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none;">
-										<p style="color: #475569; margin: 0 0 16px;">
-											<strong>${locals.user.name}</strong>さんから新しいレビュー依頼が届きました。
-										</p>
-										<div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
-											<h2 style="color: #1e293b; margin: 0 0 8px; font-size: 20px;">${title}</h2>
-											${description ? `<p style="color: #64748b; margin: 0; font-size: 14px;">${description}</p>` : ''}
+								const magicToken = await createMagicLink(userId, reviewId);
+								const magicLinkUrl = getMagicLinkUrl(magicToken, url.origin);
+
+								await sendEmail(
+									assigneeUser.email as string,
+									`[レビュー依頼] ${title}`,
+									`${locals.user.name}さんからレビュー依頼が届きました。\n\n以下のリンクをクリックしてレビューを確認してください。\n${magicLinkUrl}`,
+									`
+										<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+											<div style="background: linear-gradient(135deg, #3b82f6, #6366f1); padding: 24px; border-radius: 16px 16px 0 0;">
+												<h1 style="color: white; margin: 0; font-size: 24px;">レビュー依頼</h1>
+											</div>
+											<div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none;">
+												<p style="color: #475569; margin: 0 0 16px;">
+													<strong>${locals.user.name}</strong>さんから新しいレビュー依頼が届きました。
+												</p>
+												<div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
+													<h2 style="color: #1e293b; margin: 0 0 8px; font-size: 20px;">${title}</h2>
+													${description ? `<p style="color: #64748b; margin: 0; font-size: 14px;">${description}</p>` : ''}
+												</div>
+												<a href="${magicLinkUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 16px;">
+													レビューを確認する →
+												</a>
+												<p style="color: #94a3b8; font-size: 12px; margin-top: 20px;">
+													このリンクは7日間有効です。クリックするだけでログインできます。
+												</p>
+											</div>
 										</div>
-										<a href="${magicLinkUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 16px;">
-											レビューを確認する →
-										</a>
-										<p style="color: #94a3b8; font-size: 12px; margin-top: 20px;">
-											このリンクは7日間有効です。クリックするだけでログインできます。
-										</p>
-									</div>
-								</div>
-							`
-						);
+									`
+								);
+							}
+						} catch (emailErr) {
+							console.error('Email send failed (continuing anyway):', emailErr);
+						}
 					}
 				}
+			} catch (notifErr) {
+				console.error('Notification creation failed (continuing anyway):', notifErr);
 			}
 		}
 

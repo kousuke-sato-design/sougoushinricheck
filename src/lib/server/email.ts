@@ -1,21 +1,4 @@
-import { Resend } from 'resend';
 import { db } from './db';
-import { env } from '$env/dynamic/private';
-
-// Initialize Resend with API key from environment
-function getResend(): Resend | null {
-	const apiKey = env.RESEND_API_KEY;
-	if (!apiKey) {
-		console.log('RESEND_API_KEY not configured');
-		return null;
-	}
-	return new Resend(apiKey);
-}
-
-// Get the from email address from environment or use default
-function getFromEmail(): string {
-	return env.EMAIL_FROM || 'レビュー管理システム <onboarding@resend.dev>';
-}
 
 interface EmailSettings {
 	smtp_host: string;
@@ -25,19 +8,24 @@ interface EmailSettings {
 }
 
 export async function getEmailSettings(): Promise<EmailSettings | null> {
-	const result = await db.execute(
-		`SELECT * FROM email_settings WHERE is_active = 1 LIMIT 1`
-	);
+	try {
+		const result = await db.execute(
+			`SELECT * FROM email_settings WHERE is_active = 1 LIMIT 1`
+		);
 
-	if (result.rows.length === 0) return null;
+		if (result.rows.length === 0) return null;
 
-	const row = result.rows[0];
-	return {
-		smtp_host: row.smtp_host as string,
-		smtp_port: row.smtp_port as number,
-		email_address: row.email_address as string,
-		app_password: row.app_password as string
-	};
+		const row = result.rows[0];
+		return {
+			smtp_host: row.smtp_host as string,
+			smtp_port: row.smtp_port as number,
+			email_address: row.email_address as string,
+			app_password: row.app_password as string
+		};
+	} catch (err) {
+		console.error('Failed to get email settings:', err);
+		return null;
+	}
 }
 
 export async function sendEmail(
@@ -46,104 +34,15 @@ export async function sendEmail(
 	text: string,
 	html?: string
 ): Promise<boolean> {
-	const resend = getResend();
-	if (!resend) {
-		console.log('Email skipped: Resend not configured');
-		return false;
-	}
-
-	try {
-		const { error } = await resend.emails.send({
-			from: getFromEmail(),
-			to: [to],
-			subject,
-			text,
-			html: html || text
-		});
-
-		if (error) {
-			console.error('Resend error:', error);
-			return false;
-		}
-
-		return true;
-	} catch (err) {
-		console.error('Email send error:', err);
-		return false;
-	}
+	// Email temporarily disabled - will be implemented with Resend API later
+	console.log(`Email would be sent to: ${to}, subject: ${subject}`);
+	return false;
 }
 
 export async function sendNotificationEmail(
 	notificationId: string
 ): Promise<boolean> {
-	// Get notification details
-	const notifResult = await db.execute(
-		`SELECT n.*, u.email, u.name as user_name, r.title as review_title, r.id as review_id
-		 FROM notifications n
-		 JOIN users u ON n.user_id = u.id
-		 LEFT JOIN reviews r ON n.review_id = r.id
-		 WHERE n.id = :notificationId`,
-		{ notificationId }
-	);
-
-	if (notifResult.rows.length === 0) return false;
-
-	const notif = notifResult.rows[0];
-
-	const subject = getEmailSubject(notif.type as string, notif.review_title as string);
-	const { text, html } = getEmailBody(notif);
-
-	const success = await sendEmail(notif.email as string, subject, text, html);
-
-	if (success) {
-		await db.execute(
-			`UPDATE notifications SET email_sent = 1 WHERE id = :notificationId`,
-			{ notificationId }
-		);
-	}
-
-	return success;
-}
-
-function getEmailSubject(type: string, reviewTitle: string): string {
-	switch (type) {
-		case 'review_request':
-			return `[レビュー依頼] ${reviewTitle}`;
-		case 'comment':
-			return `[コメント] ${reviewTitle}`;
-		case 'approval':
-			return `[承認/差し戻し] ${reviewTitle}`;
-		case 'reminder':
-			return `[リマインダー] ${reviewTitle}`;
-		default:
-			return `[通知] ${reviewTitle}`;
-	}
-}
-
-function getEmailBody(notif: Record<string, unknown>): { text: string; html: string } {
-	const message = notif.message as string;
-	const reviewId = notif.review_id as string;
-
-	const baseUrl = env.PUBLIC_BASE_URL || 'http://localhost:5173';
-	const reviewUrl = reviewId ? `${baseUrl}/reviews/${reviewId}` : baseUrl;
-
-	const text = `${message}\n\n詳細はこちら: ${reviewUrl}`;
-
-	const html = `
-		<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-			<h2 style="color: #333;">社内レビュー管理システム</h2>
-			<p style="color: #555; font-size: 16px;">${message}</p>
-			<p style="margin-top: 20px;">
-				<a href="${reviewUrl}" style="display: inline-block; padding: 10px 20px; background-color: #2563eb; color: white; text-decoration: none; border-radius: 5px;">
-					詳細を確認
-				</a>
-			</p>
-			<hr style="margin-top: 30px; border: none; border-top: 1px solid #eee;" />
-			<p style="color: #999; font-size: 12px;">
-				このメールは社内レビュー管理システムから自動送信されています。
-			</p>
-		</div>
-	`;
-
-	return { text, html };
+	// Email temporarily disabled
+	console.log(`Notification email would be sent for: ${notificationId}`);
+	return false;
 }

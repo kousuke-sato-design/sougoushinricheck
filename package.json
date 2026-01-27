@@ -31,7 +31,6 @@
 		"bcryptjs": "^3.0.2",
 		"dotenv": "^17.2.3",
 		"nanoid": "^5.1.5",
-		"resend": "^6.9.0",
 		"svelte-dnd-action": "^0.9.54"
 	}
 }

@@ -28,7 +28,9 @@
       "Bash(git commit -m \"$\\(cat <<''EOF''\nRemove unsupported build config from wrangler.toml\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git rm:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nRemove package-lock.json from tracking for cross-platform compatibility\n\nCloudflare Pages build was failing because npm ci requires exact dependency sync.\npackage-lock.json generated on Windows was missing cross-platform esbuild packages.\nBy excluding it from git, Cloudflare will generate a fresh lock file during build.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
-      "Bash(xxd:*)"
+      "Bash(xxd:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix Svelte 5 @const tag placement error\n\n- Move @const declarations to $derived in script section\n- Fixes build error: @const must be immediate child of valid blocks\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)"
     ]
   }
 }

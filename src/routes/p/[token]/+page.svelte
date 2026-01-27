@@ -59,6 +59,8 @@
 	// Parse multiple URLs
 	const urls = data.review.target_url.split('\n').filter((url: string) => url.trim());
 	let activeUrlIndex = $state(0);
+	let currentUrl = $derived(urls[activeUrlIndex]);
+	let urlType = $derived(detectUrlType(currentUrl));
 
 	// Preview mode
 	type PreviewMode = 'desktop' | 'mobile';
@@ -245,8 +247,6 @@
 				</div>
 
 				<div class="p-4 bg-slate-50 min-h-[500px] flex items-start justify-center">
-					{@const currentUrl = urls[activeUrlIndex]}
-					{@const urlType = detectUrlType(currentUrl)}
 
 					<div class="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 {previewMode === 'mobile' ? 'w-[375px]' : 'w-full'}">
 						{#if previewMode === 'mobile'}

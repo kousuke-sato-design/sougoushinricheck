@@ -18,7 +18,17 @@
       "Bash(npm i:*)",
       "Bash(curl:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: 社内レビュー管理システム\n\n- SvelteKit + TypeScript + Tailwind CSS\n- Turso \\(LibSQL\\) database\n- Gmail SMTP email notifications\n- Magic link authentication\n- Project management with Trello-style Kanban board\n- Review workflow with approval/rejection\n- Calendar views \\(month, week, list, Gantt\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git branch:*)",
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix package-lock.json for Cloudflare build\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nFix build: use npm install instead of npm ci\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRemove unsupported build config from wrangler.toml\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git rm:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nRemove package-lock.json from tracking for cross-platform compatibility\n\nCloudflare Pages build was failing because npm ci requires exact dependency sync.\npackage-lock.json generated on Windows was missing cross-platform esbuild packages.\nBy excluding it from git, Cloudflare will generate a fresh lock file during build.\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(xxd:*)"
     ]
   }
 }

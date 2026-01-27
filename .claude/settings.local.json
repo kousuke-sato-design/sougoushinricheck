@@ -35,7 +35,8 @@
       "Bash(wrangler whoami:*)",
       "Bash(wrangler login:*)",
       "Bash(wrangler pages secret put:*)",
-      "Bash(wrangler pages deployment create:*)"
+      "Bash(wrangler pages deployment create:*)",
+      "Bash(npm uninstall:*)"
     ]
   }
 }

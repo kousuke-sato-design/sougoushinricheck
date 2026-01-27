@@ -1,5 +1,21 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { db } from './db';
+import { env } from '$env/dynamic/private';
+
+// Initialize Resend with API key from environment
+function getResend(): Resend | null {
+	const apiKey = env.RESEND_API_KEY;
+	if (!apiKey) {
+		console.log('RESEND_API_KEY not configured');
+		return null;
+	}
+	return new Resend(apiKey);
+}
+
+// Get the from email address from environment or use default
+function getFromEmail(): string {
+	return env.EMAIL_FROM || 'レビュー管理システム <onboarding@resend.dev>';
+}
 
 interface EmailSettings {
 	smtp_host: string;
@@ -30,36 +46,25 @@ export async function sendEmail(
 	text: string,
 	html?: string
 ): Promise<boolean> {
-	// Skip email in Cloudflare Workers environment (nodemailer doesn't work with Workers)
-	if (typeof globalThis.caches !== 'undefined' && typeof (globalThis as unknown as Record<string, unknown>).process === 'undefined') {
-		console.log('Email skipped: Running in Cloudflare Workers environment');
-		return false;
-	}
-
-	const settings = await getEmailSettings();
-	if (!settings) {
-		console.log('Email settings not configured');
+	const resend = getResend();
+	if (!resend) {
+		console.log('Email skipped: Resend not configured');
 		return false;
 	}
 
 	try {
-		const transporter = nodemailer.createTransport({
-			host: settings.smtp_host,
-			port: settings.smtp_port,
-			secure: settings.smtp_port === 465,
-			auth: {
-				user: settings.email_address,
-				pass: settings.app_password
-			}
-		});
-
-		await transporter.sendMail({
-			from: `"レビュー管理システム" <${settings.email_address}>`,
-			to,
+		const { error } = await resend.emails.send({
+			from: getFromEmail(),
+			to: [to],
 			subject,
 			text,
 			html: html || text
 		});
+
+		if (error) {
+			console.error('Resend error:', error);
+			return false;
+		}
 
 		return true;
 	} catch (err) {
@@ -119,7 +124,7 @@ function getEmailBody(notif: Record<string, unknown>): { text: string; html: str
 	const message = notif.message as string;
 	const reviewId = notif.review_id as string;
 
-	const baseUrl = process.env.PUBLIC_BASE_URL || 'http://localhost:5173';
+	const baseUrl = env.PUBLIC_BASE_URL || 'http://localhost:5173';
 	const reviewUrl = reviewId ? `${baseUrl}/reviews/${reviewId}` : baseUrl;
 
 	const text = `${message}\n\n詳細はこちら: ${reviewUrl}`;

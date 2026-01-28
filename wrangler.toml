@@ -5,7 +5,9 @@ pages_build_output_dir = ".svelte-kit/cloudflare"
 
 [vars]
 PUBLIC_BASE_URL = "https://sougoushinricheck.pages.dev"
+EMAIL_FROM = "レビュー管理システム <onboarding@resend.dev>"
 
 # These should be set as secrets in Cloudflare dashboard
 # TURSO_DATABASE_URL = ""
 # TURSO_AUTH_TOKEN = ""
+# RESEND_API_KEY = ""

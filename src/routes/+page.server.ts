@@ -5,7 +5,7 @@ import { getUserCount, login } from '$lib/server/auth';
 export const load: PageServerLoad = async ({ locals }) => {
 	// Check if user is already logged in
 	if (locals.user) {
-		throw redirect(302, '/dashboard');
+		throw redirect(302, '/goals');
 	}
 
 	// Check if setup is needed (no users exist)
@@ -40,6 +40,6 @@ export const actions: Actions = {
 			maxAge: 60 * 60 * 24 // 24 hours
 		});
 
-		throw redirect(302, '/dashboard');
+		throw redirect(302, '/goals');
 	}
 };

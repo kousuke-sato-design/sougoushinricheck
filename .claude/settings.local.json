@@ -36,7 +36,16 @@
       "Bash(wrangler login:*)",
       "Bash(wrangler pages secret put:*)",
       "Bash(wrangler pages deployment create:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "WebFetch(domain:sougoushinricheck.pages.dev)",
+      "Bash(npm rebuild:*)",
+      "Bash(test:*)",
+      "WebSearch",
+      "Bash(findstr:*)",
+      "Bash(timeout:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(netstat:*)",
+      "Bash(start cmd /c \"npm run dev\")"
     ]
   }
 }

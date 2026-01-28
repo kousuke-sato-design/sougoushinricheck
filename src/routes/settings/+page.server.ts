@@ -10,7 +10,7 @@ export const load: PageServerLoad = async ({ locals }) => {
 	}
 
 	if (locals.user.role !== 'admin') {
-		throw redirect(302, '/dashboard');
+		throw redirect(302, '/goals');
 	}
 
 	const emailSettings = await db.execute(

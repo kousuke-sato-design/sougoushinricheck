@@ -1,6 +1,7 @@
 import { redirect } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 import { db } from '$lib/server/db';
+import { getEmailUsage } from '$lib/server/email';
 
 export const load: PageServerLoad = async ({ locals, url }) => {
 	if (!locals.user) {
@@ -8,9 +9,10 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	}
 
 	const userId = locals.user.id;
-	const filter = url.searchParams.get('filter') || 'assigned'; // assigned or created
+	const filter = url.searchParams.get('filter') || 'created'; // assigned or created
 	const status = url.searchParams.get('status') || 'all';
 	const search = url.searchParams.get('search') || '';
+	const sort = url.searchParams.get('sort') || 'newest';
 
 	let query: string;
 	let params: Record<string, unknown> = { userId };
@@ -49,7 +51,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		params.search = `%${search}%`;
 	}
 
-	query += ` ORDER BY r.created_at DESC`;
+	// Sort order - status order puts completed items at the bottom
+	if (sort === 'oldest') {
+		query += ` ORDER BY r.created_at ASC`;
+	} else if (sort === 'status') {
+		// Order: pending, shared, in_review, draft, rejected, approved (completed last)
+		query += ` ORDER BY CASE r.status
+			WHEN 'pending' THEN 1
+			WHEN 'shared' THEN 2
+			WHEN 'in_review' THEN 3
+			WHEN 'draft' THEN 4
+			WHEN 'rejected' THEN 5
+			WHEN 'approved' THEN 6
+			ELSE 7 END, r.created_at DESC`;
+	} else {
+		query += ` ORDER BY r.created_at DESC`;
+	}
 
 	const reviews = await db.execute(query, params);
 
@@ -83,11 +100,22 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	// Get all tags for filter
 	const allTags = await db.execute(`SELECT id, name, color FROM tags ORDER BY name`);
 
+	// Get email usage
+	const emailUsage = await getEmailUsage();
+
+	// Get all active users for notification (including self for testing)
+	const allUsers = await db.execute(
+		`SELECT id, name, email FROM users WHERE is_active = 1 ORDER BY name`
+	);
+
 	return {
 		reviews: reviewsWithTags,
 		allTags: allTags.rows,
+		allUsers: allUsers.rows,
 		filter,
 		status,
-		search
+		search,
+		sort,
+		emailUsage
 	};
 };

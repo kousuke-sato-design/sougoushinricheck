@@ -58,5 +58,5 @@ export const GET: RequestHandler = async ({ params, cookies }) => {
 		throw redirect(302, `/reviews/${magicLink.review_id}`);
 	}
 
-	throw redirect(302, '/dashboard');
+	throw redirect(302, '/goals');
 };

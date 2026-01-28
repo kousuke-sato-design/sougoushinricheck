@@ -63,7 +63,7 @@ export const actions: Actions = {
 				maxAge: 60 * 60 * 24 // 24 hours
 			});
 
-			throw redirect(302, '/dashboard');
+			throw redirect(302, '/goals');
 		} catch (err) {
 			if (err instanceof Response) throw err;
 			console.error('Setup error:', err);

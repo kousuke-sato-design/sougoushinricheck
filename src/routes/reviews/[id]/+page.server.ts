@@ -1,8 +1,7 @@
-import { redirect, fail, error } from '@sveltejs/kit';
+import { redirect, error, fail } from '@sveltejs/kit';
 import type { PageServerLoad, Actions } from './$types';
 import { db } from '$lib/server/db';
 import { nanoid } from 'nanoid';
-import { createMagicLink, getMagicLinkUrl } from '$lib/server/magicLink';
 import { sendEmail, getEmailSettings } from '$lib/server/email';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
@@ -10,361 +9,268 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		throw redirect(302, '/');
 	}
 
-	const reviewId = params.id;
-
-	// Get review details
 	const reviewResult = await db.execute(
 		`SELECT r.*, u.name as requester_name, u.email as requester_email
 		 FROM reviews r
 		 JOIN users u ON r.requester_id = u.id
 		 WHERE r.id = :reviewId`,
-		{ reviewId }
+		{ reviewId: params.id }
 	);
 
 	if (reviewResult.rows.length === 0) {
-		throw error(404, 'レビューが見つかりません');
+		throw error(404, 'ドキュメントが見つかりません');
 	}
 
 	const review = reviewResult.rows[0];
 
-	// Get assignees
-	const assigneesResult = await db.execute(
-		`SELECT ra.*, u.name, u.email
-		 FROM review_assignees ra
-		 JOIN users u ON ra.user_id = u.id
-		 WHERE ra.review_id = :reviewId`,
-		{ reviewId }
-	);
-
-	// Get comments with user info
 	const commentsResult = await db.execute(
 		`SELECT c.*, u.name as user_name
 		 FROM comments c
 		 JOIN users u ON c.user_id = u.id
 		 WHERE c.review_id = :reviewId
 		 ORDER BY c.created_at ASC`,
-		{ reviewId }
-	);
-
-	// Get tags for this review
-	const tagsResult = await db.execute(
-		`SELECT t.id, t.name, t.color
-		 FROM tags t
-		 JOIN review_tags rt ON t.id = rt.tag_id
-		 WHERE rt.review_id = :reviewId`,
-		{ reviewId }
-	);
-
-	// Get goals linked to this review
-	const goalsResult = await db.execute(
-		`SELECT g.id, g.title, g.due_date, g.status, g.color, g.description,
-			(SELECT COUNT(*) FROM review_goals rg2
-			 JOIN reviews r ON rg2.review_id = r.id
-			 WHERE rg2.goal_id = g.id AND r.status = 'approved') as completed_reviews,
-			(SELECT COUNT(*) FROM review_goals WHERE goal_id = g.id) as total_reviews
-		 FROM goals g
-		 JOIN review_goals rg ON g.id = rg.goal_id
-		 WHERE rg.review_id = :reviewId`,
-		{ reviewId }
-	);
-
-	// Check if user is assignee
-	const isAssignee = assigneesResult.rows.some(
-		(a) => a.user_id === locals.user?.id
-	);
-	const isRequester = review.requester_id === locals.user.id;
-
-	// Get user's assignee status
-	const myAssignment = assigneesResult.rows.find(
-		(a) => a.user_id === locals.user?.id
+		{ reviewId: review.id }
 	);
 
 	return {
 		review,
-		assignees: assigneesResult.rows,
-		comments: commentsResult.rows,
-		tags: tagsResult.rows,
-		goals: goalsResult.rows,
-		isAssignee,
-		isRequester,
-		myAssignment,
-		publicUrl: review.public_token ? `/p/${review.public_token}` : null
+		comments: commentsResult.rows
 	};
 };
 
 export const actions: Actions = {
-	comment: async ({ request, locals, params }) => {
+	approve: async ({ request, params, locals }) => {
 		if (!locals.user) {
-			throw redirect(302, '/');
+			return fail(401, { error: 'ログインが必要です' });
 		}
 
-		const formData = await request.formData();
-		const content = formData.get('content') as string;
-		const parentId = formData.get('parentId') as string | null;
-
-		if (!content || !content.trim()) {
-			return fail(400, { error: 'コメントを入力してください' });
-		}
-
-		const commentId = nanoid();
-		await db.execute(
-			`INSERT INTO comments (id, review_id, user_id, parent_id, content)
-			 VALUES (:id, :reviewId, :userId, :parentId, :content)`,
-			{
-				id: commentId,
-				reviewId: params.id,
-				userId: locals.user.id,
-				parentId: parentId || null,
-				content: content.trim()
-			}
-		);
-
-		// Get review and create notification for other participants
-		const review = await db.execute(
-			`SELECT title, requester_id FROM reviews WHERE id = :reviewId`,
+		const reviewResult = await db.execute(
+			`SELECT r.*, u.name as requester_name, u.email as requester_email
+			 FROM reviews r
+			 JOIN users u ON r.requester_id = u.id
+			 WHERE r.id = :reviewId`,
 			{ reviewId: params.id }
 		);
 
-		if (review.rows.length > 0) {
-			const reviewData = review.rows[0];
-
-			// Notify requester if commenter is not the requester
-			if (reviewData.requester_id !== locals.user.id) {
-				await db.execute(
-					`INSERT INTO notifications (id, user_id, review_id, type, message)
-					 VALUES (:id, :userId, :reviewId, 'comment', :message)`,
-					{
-						id: nanoid(),
-						userId: reviewData.requester_id,
-						reviewId: params.id,
-						message: `${locals.user.name}さんが「${reviewData.title}」にコメントしました`
-					}
-				);
-			}
-
-			// Notify assignees (except the commenter)
-			const assignees = await db.execute(
-				`SELECT user_id FROM review_assignees WHERE review_id = :reviewId AND user_id != :userId`,
-				{ reviewId: params.id, userId: locals.user.id }
-			);
-
-			for (const assignee of assignees.rows) {
-				if (assignee.user_id !== reviewData.requester_id) {
-					await db.execute(
-						`INSERT INTO notifications (id, user_id, review_id, type, message)
-						 VALUES (:id, :userId, :reviewId, 'comment', :message)`,
-						{
-							id: nanoid(),
-							userId: assignee.user_id,
-							reviewId: params.id,
-							message: `${locals.user.name}さんが「${reviewData.title}」にコメントしました`
-						}
-					);
-				}
-			}
+		if (reviewResult.rows.length === 0) {
+			return fail(404, { error: 'ドキュメントが見つかりません' });
 		}
 
-		return { success: true };
-	},
+		const review = reviewResult.rows[0];
 
-	approve: async ({ locals, params }) => {
-		if (!locals.user) {
-			throw redirect(302, '/');
-		}
-
-		const reviewId = params.id;
-
-		// Update assignee status
 		await db.execute(
-			`UPDATE review_assignees
-			 SET status = 'approved', reviewed_at = datetime('now')
-			 WHERE review_id = :reviewId AND user_id = :userId`,
-			{ reviewId, userId: locals.user.id }
+			`UPDATE reviews SET status = 'approved', updated_at = datetime('now') WHERE id = :reviewId`,
+			{ reviewId: review.id }
 		);
 
-		// Check if all assignees have approved
-		const assignees = await db.execute(
-			`SELECT status FROM review_assignees WHERE review_id = :reviewId`,
-			{ reviewId }
+		await db.execute(
+			`INSERT INTO comments (id, review_id, user_id, content)
+			 VALUES (:id, :reviewId, :userId, :content)`,
+			{
+				id: nanoid(),
+				reviewId: review.id,
+				userId: locals.user.id,
+				content: `【${locals.user.name}】が確認OKしました`
+			}
 		);
 
-		const allApproved = assignees.rows.every((a) => a.status === 'approved');
-
-		if (allApproved) {
-			await db.execute(
-				`UPDATE reviews SET status = 'approved', updated_at = datetime('now') WHERE id = :reviewId`,
-				{ reviewId }
-			);
-		} else {
-			await db.execute(
-				`UPDATE reviews SET status = 'in_review', updated_at = datetime('now') WHERE id = :reviewId`,
-				{ reviewId }
-			);
-		}
-
-		// Notify requester
-		const review = await db.execute(
-			`SELECT title, requester_id FROM reviews WHERE id = :reviewId`,
-			{ reviewId }
-		);
-
-		if (review.rows.length > 0) {
-			await db.execute(
-				`INSERT INTO notifications (id, user_id, review_id, type, message)
-				 VALUES (:id, :userId, :reviewId, 'approval', :message)`,
-				{
-					id: nanoid(),
-					userId: review.rows[0].requester_id,
-					reviewId,
-					message: `${locals.user.name}さんが「${review.rows[0].title}」を承認しました`
-				}
+		const emailSettings = await getEmailSettings();
+		if (emailSettings && review.requester_email) {
+			await sendEmail(
+				review.requester_email as string,
+				`[確認OK] ${review.title}`,
+				`${locals.user.name}さんが「${review.title}」を確認OKしました。`,
+				`<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+					<div style="background: #10b981; padding: 20px; border-radius: 12px 12px 0 0;">
+						<h1 style="color: white; margin: 0; font-size: 20px;">確認OK</h1>
+					</div>
+					<div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+						<p><strong>${locals.user.name}</strong>さんが以下を確認OKしました。</p>
+						<div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
+							<p style="margin: 0; font-weight: bold;">${review.title}</p>
+						</div>
+					</div>
+				</div>`
 			);
 		}
 
 		return { success: true, action: 'approved' };
 	},
 
-	reject: async ({ locals, params }) => {
+	reject: async ({ request, params, locals }) => {
 		if (!locals.user) {
-			throw redirect(302, '/');
+			return fail(401, { error: 'ログインが必要です' });
 		}
 
-		const reviewId = params.id;
+		const formData = await request.formData();
+		const reason = formData.get('reason') as string;
+		const sendNotification = formData.get('sendNotification') === '1';
 
-		// Update assignee status
-		await db.execute(
-			`UPDATE review_assignees
-			 SET status = 'rejected', reviewed_at = datetime('now')
-			 WHERE review_id = :reviewId AND user_id = :userId`,
-			{ reviewId, userId: locals.user.id }
+		if (!reason || !reason.trim()) {
+			return fail(400, { error: 'コメントを入力してください' });
+		}
+
+		const reviewResult = await db.execute(
+			`SELECT r.*, u.name as requester_name, u.email as requester_email
+			 FROM reviews r
+			 JOIN users u ON r.requester_id = u.id
+			 WHERE r.id = :reviewId`,
+			{ reviewId: params.id }
 		);
 
-		// Update review status
+		if (reviewResult.rows.length === 0) {
+			return fail(404, { error: 'ドキュメントが見つかりません' });
+		}
+
+		const review = reviewResult.rows[0];
+
 		await db.execute(
 			`UPDATE reviews SET status = 'rejected', updated_at = datetime('now') WHERE id = :reviewId`,
-			{ reviewId }
+			{ reviewId: review.id }
 		);
 
-		// Notify requester
-		const review = await db.execute(
-			`SELECT title, requester_id FROM reviews WHERE id = :reviewId`,
-			{ reviewId }
+		const commentContent = `【${locals.user.name}】からのコメント:\n${reason}`;
+
+		await db.execute(
+			`INSERT INTO comments (id, review_id, user_id, content)
+			 VALUES (:id, :reviewId, :userId, :content)`,
+			{
+				id: nanoid(),
+				reviewId: review.id,
+				userId: locals.user.id,
+				content: commentContent
+			}
 		);
 
-		if (review.rows.length > 0) {
-			await db.execute(
-				`INSERT INTO notifications (id, user_id, review_id, type, message)
-				 VALUES (:id, :userId, :reviewId, 'approval', :message)`,
-				{
-					id: nanoid(),
-					userId: review.rows[0].requester_id,
-					reviewId,
-					message: `${locals.user.name}さんが「${review.rows[0].title}」を差し戻しました`
-				}
-			);
+		if (sendNotification) {
+			const emailSettings = await getEmailSettings();
+			if (emailSettings && review.requester_email) {
+				await sendEmail(
+					review.requester_email as string,
+					`[コメント] ${review.title}`,
+					`${locals.user.name}さんが「${review.title}」にコメントしました。\n\nコメント: ${reason}`,
+					`<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+						<div style="background: #ef4444; padding: 20px; border-radius: 12px 12px 0 0;">
+							<h1 style="color: white; margin: 0; font-size: 20px;">コメントがあります</h1>
+						</div>
+						<div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+							<p><strong>${locals.user.name}</strong>さんがコメントしました。</p>
+							<div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
+								<p style="margin: 0; font-weight: bold;">${review.title}</p>
+								<p style="margin: 8px 0 0; color: #64748b;">${reason}</p>
+							</div>
+						</div>
+					</div>`
+				);
+			}
 		}
 
 		return { success: true, action: 'rejected' };
 	},
 
-	sendNotifications: async ({ locals, params, url }) => {
+	resubmit: async ({ request, params, locals }) => {
 		if (!locals.user) {
-			throw redirect(302, '/');
+			return fail(401, { error: 'ログインが必要です' });
 		}
 
-		const reviewId = params.id;
+		const formData = await request.formData();
+		const title = formData.get('title') as string;
+		const description = formData.get('description') as string;
 
-		// Get review details
+		if (!title || !title.trim()) {
+			return fail(400, { error: 'タイトルを入力してください' });
+		}
+
 		const reviewResult = await db.execute(
-			`SELECT r.*, u.name as requester_name
+			`SELECT r.*, u.name as requester_name, u.email as requester_email
 			 FROM reviews r
 			 JOIN users u ON r.requester_id = u.id
 			 WHERE r.id = :reviewId`,
-			{ reviewId }
+			{ reviewId: params.id }
 		);
 
 		if (reviewResult.rows.length === 0) {
-			return fail(404, { error: 'レビューが見つかりません' });
+			return fail(404, { error: 'ドキュメントが見つかりません' });
 		}
 
 		const review = reviewResult.rows[0];
 
-		// Only allow sending notifications for draft reviews
-		if (review.status !== 'draft') {
-			return fail(400, { error: 'このレビューは既に通知済みです' });
-		}
+		await db.execute(
+			`UPDATE reviews SET title = :title, description = :description, status = 'pending', updated_at = datetime('now') WHERE id = :reviewId`,
+			{ title: title.trim(), description: description?.trim() || '', reviewId: review.id }
+		);
 
-		// Only requester can send notifications
-		if (review.requester_id !== locals.user.id) {
-			return fail(403, { error: '権限がありません' });
-		}
-
-		// Get assignees
-		const assigneesResult = await db.execute(
-			`SELECT ra.user_id, u.email, u.name
-			 FROM review_assignees ra
-			 JOIN users u ON ra.user_id = u.id
-			 WHERE ra.review_id = :reviewId`,
-			{ reviewId }
+		await db.execute(
+			`INSERT INTO comments (id, review_id, user_id, content)
+			 VALUES (:id, :reviewId, :userId, :content)`,
+			{
+				id: nanoid(),
+				reviewId: review.id,
+				userId: locals.user.id,
+				content: `【${locals.user.name}】がドキュメントを修正し、再依頼しました`
+			}
 		);
 
 		const emailSettings = await getEmailSettings();
-
-		// Send notifications to assignees
-		for (const assignee of assigneesResult.rows) {
-			// Create notification
-			await db.execute(
-				`INSERT INTO notifications (id, user_id, review_id, type, message)
-				 VALUES (:id, :userId, :reviewId, 'review_request', :message)`,
-				{
-					id: nanoid(),
-					userId: assignee.user_id,
-					reviewId,
-					message: `${locals.user.name}さんからレビュー依頼「${review.title}」が届きました`
-				}
-			);
-
-			// Send email with magic link
-			if (emailSettings) {
-				const magicToken = await createMagicLink(assignee.user_id as string, reviewId);
-				const magicLinkUrl = getMagicLinkUrl(magicToken, url.origin);
-
-				await sendEmail(
-					assignee.email as string,
-					`[レビュー依頼] ${review.title}`,
-					`${locals.user.name}さんからレビュー依頼が届きました。\n\n以下のリンクをクリックしてレビューを確認してください。\n${magicLinkUrl}`,
-					`
-						<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-							<div style="background: linear-gradient(135deg, #3b82f6, #6366f1); padding: 24px; border-radius: 16px 16px 0 0;">
-								<h1 style="color: white; margin: 0; font-size: 24px;">レビュー依頼</h1>
-							</div>
-							<div style="background: #f8fafc; padding: 24px; border: 1px solid #e2e8f0; border-top: none;">
-								<p style="color: #475569; margin: 0 0 16px;">
-									<strong>${locals.user.name}</strong>さんから新しいレビュー依頼が届きました。
-								</p>
-								<div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px;">
-									<h2 style="color: #1e293b; margin: 0 0 8px; font-size: 20px;">${review.title}</h2>
-									${review.description ? `<p style="color: #64748b; margin: 0; font-size: 14px;">${review.description}</p>` : ''}
-								</div>
-								<a href="${magicLinkUrl}" style="display: inline-block; background: linear-gradient(135deg, #3b82f6, #6366f1); color: white; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: bold; font-size: 16px;">
-									レビューを確認する →
-								</a>
-								<p style="color: #94a3b8; font-size: 12px; margin-top: 20px;">
-									このリンクは7日間有効です。クリックするだけでログインできます。
-								</p>
-							</div>
+		if (emailSettings && review.requester_email) {
+			await sendEmail(
+				review.requester_email as string,
+				`[再依頼] ${title}`,
+				`${locals.user.name}さんがドキュメント「${title}」を修正し、再依頼しました。`,
+				`<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+					<div style="background: #3b82f6; padding: 20px; border-radius: 12px 12px 0 0;">
+						<h1 style="color: white; margin: 0; font-size: 20px;">再依頼</h1>
+					</div>
+					<div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+						<p><strong>${locals.user.name}</strong>さんがドキュメントを修正し、再度確認依頼を送信しました。</p>
+						<div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
+							<p style="margin: 0; font-weight: bold;">${title}</p>
 						</div>
-					`
-				);
-			}
+					</div>
+				</div>`
+			);
 		}
 
-		// Update review status to pending
+		return { success: true, action: 'resubmitted' };
+	},
+
+	update: async ({ request, params, locals }) => {
+		if (!locals.user) {
+			return fail(401, { error: 'ログインが必要です' });
+		}
+
+		const formData = await request.formData();
+		const title = formData.get('title') as string;
+		const description = formData.get('description') as string;
+		const emoji = formData.get('emoji') as string;
+
+		if (!title || !title.trim()) {
+			return fail(400, { error: 'タイトルを入力してください' });
+		}
+
 		await db.execute(
-			`UPDATE reviews SET status = 'pending', updated_at = datetime('now') WHERE id = :reviewId`,
-			{ reviewId }
+			`UPDATE reviews SET title = :title, description = :description, emoji = :emoji, updated_at = datetime('now') WHERE id = :reviewId`,
+			{
+				reviewId: params.id,
+				title: title.trim(),
+				description: description?.trim() || '',
+				emoji: emoji || '📄'
+			}
 		);
 
-		return { success: true, action: 'notified' };
+		return { success: true, action: 'updated' };
+	},
+
+	delete: async ({ params, locals }) => {
+		if (!locals.user) {
+			return fail(401, { error: 'ログインが必要です' });
+		}
+
+		await db.execute(`DELETE FROM comments WHERE review_id = :reviewId`, { reviewId: params.id });
+		await db.execute(`DELETE FROM review_goals WHERE review_id = :reviewId`, { reviewId: params.id });
+		await db.execute(`DELETE FROM review_objectives WHERE review_id = :reviewId`, { reviewId: params.id });
+		await db.execute(`DELETE FROM reviews WHERE id = :reviewId`, { reviewId: params.id });
+
+		throw redirect(302, '/reviews');
 	}
 };

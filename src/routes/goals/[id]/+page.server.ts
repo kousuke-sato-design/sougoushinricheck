@@ -34,12 +34,15 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		{ goalId }
 	);
 
-	// Get related reviews
+	// Get related reviews with access tokens and linked objectives
 	const reviewsResult = await db.execute(
-		`SELECT r.*, u.name as requester_name
+		`SELECT r.*, u.name as requester_name,
+		        go.id as objective_id, go.title as objective_title, go.color as objective_color
 		 FROM review_goals rg
 		 JOIN reviews r ON rg.review_id = r.id
 		 JOIN users u ON r.requester_id = u.id
+		 LEFT JOIN review_objectives ro ON ro.review_id = r.id
+		 LEFT JOIN goal_objectives go ON ro.objective_id = go.id
 		 WHERE rg.goal_id = :goalId
 		 ORDER BY r.created_at DESC`,
 		{ goalId }
@@ -48,11 +51,6 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 	// Get all users for editing
 	const allUsers = await db.execute(
 		`SELECT id, name, email FROM users WHERE is_active = 1 ORDER BY name`
-	);
-
-	// Get all reviews for linking
-	const allReviews = await db.execute(
-		`SELECT id, title, status FROM reviews ORDER BY created_at DESC LIMIT 50`
 	);
 
 	// Get tasks for this goal
@@ -65,15 +63,50 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		{ goalId }
 	);
 
+	// Get objectives for this goal
+	const objectivesResult = await db.execute(
+		`SELECT * FROM goal_objectives
+		 WHERE goal_id = :goalId
+		 ORDER BY sort_order ASC, created_at ASC`,
+		{ goalId }
+	);
+
+	// Get reviews linked to each objective
+	const objectiveReviewsResult = await db.execute(
+		`SELECT ro.objective_id, r.id, r.title, r.status, r.created_at, u.name as requester_name
+		 FROM review_objectives ro
+		 JOIN reviews r ON ro.review_id = r.id
+		 JOIN users u ON r.requester_id = u.id
+		 WHERE ro.objective_id IN (SELECT id FROM goal_objectives WHERE goal_id = :goalId)
+		 ORDER BY r.created_at DESC`,
+		{ goalId }
+	);
+
+	// Group reviews by objective
+	const reviewsByObjective: Record<string, typeof objectiveReviewsResult.rows> = {};
+	for (const row of objectiveReviewsResult.rows) {
+		const objId = row.objective_id as string;
+		if (!reviewsByObjective[objId]) {
+			reviewsByObjective[objId] = [];
+		}
+		reviewsByObjective[objId].push(row);
+	}
+
+	// Add reviews to each objective
+	const objectivesWithReviews = objectivesResult.rows.map(obj => ({
+		...obj,
+		reviews: reviewsByObjective[obj.id as string] || []
+	}));
+
 	return {
 		goal: {
 			...goal,
 			assignees: assigneesResult.rows,
 			reviews: reviewsResult.rows,
-			tasks: tasksResult.rows
+			tasks: tasksResult.rows,
+			objectives: objectivesWithReviews
 		},
-		allUsers: allUsers.rows,
-		allReviews: allReviews.rows
+		allUsers: allUsers.rows
 	};
 };
 
@@ -170,29 +203,35 @@ export const actions: Actions = {
 		throw redirect(302, '/goals');
 	},
 
-	linkReview: async ({ request, locals, params }) => {
+	createReview: async ({ request, locals, params }) => {
 		if (!locals.user) {
 			throw redirect(302, '/');
 		}
 
 		const goalId = params.id;
 		const formData = await request.formData();
-		const reviewId = formData.get('review_id') as string;
+		const title = formData.get('title') as string;
 
-		if (!reviewId) {
-			return fail(400, { error: 'レビューを選択してください' });
+		if (!title || !title.trim()) {
+			return fail(400, { error: 'タイトルを入力してください' });
 		}
 
-		// Check if already linked
-		const existing = await db.execute(
-			`SELECT id FROM review_goals WHERE goal_id = :goalId AND review_id = :reviewId`,
-			{ goalId, reviewId }
+		const reviewId = nanoid();
+		const publicToken = nanoid();
+
+		// Create review
+		await db.execute(
+			`INSERT INTO reviews (id, title, description, emoji, target_url, content_type, status, requester_id, public_token)
+			 VALUES (:id, :title, '', '📄', '', 'other', 'draft', :requesterId, :publicToken)`,
+			{
+				id: reviewId,
+				title: title.trim(),
+				requesterId: locals.user.id,
+				publicToken
+			}
 		);
 
-		if (existing.rows.length > 0) {
-			return fail(400, { error: '既にリンクされています' });
-		}
-
+		// Link to goal
 		await db.execute(
 			`INSERT INTO review_goals (id, goal_id, review_id) VALUES (:id, :goalId, :reviewId)`,
 			{
@@ -202,24 +241,85 @@ export const actions: Actions = {
 			}
 		);
 
+		throw redirect(302, `/reviews/${reviewId}`);
+	},
+
+	deleteReview: async ({ request, locals }) => {
+		if (!locals.user) {
+			throw redirect(302, '/');
+		}
+
+		const formData = await request.formData();
+		const reviewId = formData.get('review_id') as string;
+
+		if (!reviewId) {
+			return fail(400, { error: 'レビューIDが必要です' });
+		}
+
+		// Delete related records
+		await db.execute(`DELETE FROM review_objectives WHERE review_id = :reviewId`, { reviewId });
+		await db.execute(`DELETE FROM review_goals WHERE review_id = :reviewId`, { reviewId });
+		await db.execute(`DELETE FROM comments WHERE review_id = :reviewId`, { reviewId });
+		await db.execute(`DELETE FROM review_assignees WHERE review_id = :reviewId`, { reviewId });
+		await db.execute(`DELETE FROM reviews WHERE id = :reviewId`, { reviewId });
+
 		return { success: true };
 	},
 
-	unlinkReview: async ({ request, locals, params }) => {
+	createReviewFromObjective: async ({ request, locals, params }) => {
 		if (!locals.user) {
 			throw redirect(302, '/');
 		}
 
 		const goalId = params.id;
 		const formData = await request.formData();
-		const reviewId = formData.get('review_id') as string;
+		const objectiveId = formData.get('objective_id') as string;
+		const title = formData.get('title') as string;
 
+		if (!objectiveId) {
+			return fail(400, { error: '目標IDが必要です' });
+		}
+
+		if (!title || !title.trim()) {
+			return fail(400, { error: 'タイトルを入力してください' });
+		}
+
+		const reviewId = nanoid();
+		const publicToken = nanoid();
+
+		// Create review
 		await db.execute(
-			`DELETE FROM review_goals WHERE goal_id = :goalId AND review_id = :reviewId`,
-			{ goalId, reviewId }
+			`INSERT INTO reviews (id, title, description, emoji, target_url, content_type, status, requester_id, public_token)
+			 VALUES (:id, :title, '', '📄', '', 'other', 'draft', :requesterId, :publicToken)`,
+			{
+				id: reviewId,
+				title: title.trim(),
+				requesterId: locals.user.id,
+				publicToken
+			}
 		);
 
-		return { success: true };
+		// Link to goal
+		await db.execute(
+			`INSERT INTO review_goals (id, goal_id, review_id) VALUES (:id, :goalId, :reviewId)`,
+			{
+				id: nanoid(),
+				goalId,
+				reviewId
+			}
+		);
+
+		// Link to objective
+		await db.execute(
+			`INSERT INTO review_objectives (id, objective_id, review_id) VALUES (:id, :objectiveId, :reviewId)`,
+			{
+				id: nanoid(),
+				objectiveId,
+				reviewId
+			}
+		);
+
+		throw redirect(302, `/reviews/${reviewId}`);
 	},
 
 	addTask: async ({ request, locals, params }) => {
@@ -379,5 +479,112 @@ export const actions: Actions = {
 			console.error('Error reordering tasks:', e);
 			return fail(500, { error: 'タスクの並び替えに失敗しました' });
 		}
+	},
+
+	addObjective: async ({ request, locals, params }) => {
+		if (!locals.user) {
+			throw redirect(302, '/');
+		}
+
+		const goalId = params.id;
+		const formData = await request.formData();
+		const title = formData.get('title') as string;
+		const dueDate = formData.get('due_date') as string;
+		const color = formData.get('color') as string;
+
+		if (!title || !title.trim()) {
+			return fail(400, { error: '目標を入力してください' });
+		}
+
+		const objectiveId = nanoid();
+		const now = new Date().toISOString();
+
+		// Get max sort order
+		const maxOrder = await db.execute(
+			`SELECT MAX(sort_order) as max_order FROM goal_objectives WHERE goal_id = :goalId`,
+			{ goalId }
+		);
+		const sortOrder = ((maxOrder.rows[0]?.max_order as number) || 0) + 1;
+
+		await db.execute(
+			`INSERT INTO goal_objectives (id, goal_id, title, due_date, color, sort_order, created_at, updated_at)
+			 VALUES (:id, :goalId, :title, :dueDate, :color, :sortOrder, :now, :now)`,
+			{
+				id: objectiveId,
+				goalId,
+				title: title.trim(),
+				dueDate: dueDate || null,
+				color: color || '#3b82f6',
+				sortOrder,
+				now
+			}
+		);
+
+		return { success: true };
+	},
+
+	updateObjective: async ({ request, locals }) => {
+		if (!locals.user) {
+			throw redirect(302, '/');
+		}
+
+		const formData = await request.formData();
+		const objectiveId = formData.get('objective_id') as string;
+		const title = formData.get('title') as string;
+		const dueDate = formData.get('due_date') as string;
+		const color = formData.get('color') as string;
+
+		if (!objectiveId) {
+			return fail(400, { error: '目標IDが必要です' });
+		}
+
+		const now = new Date().toISOString();
+
+		await db.execute(
+			`UPDATE goal_objectives SET title = :title, due_date = :dueDate, color = :color, updated_at = :now WHERE id = :objectiveId`,
+			{ objectiveId, title: title?.trim() || '', dueDate: dueDate || null, color: color || '#3b82f6', now }
+		);
+
+		return { success: true };
+	},
+
+	toggleObjective: async ({ request, locals }) => {
+		if (!locals.user) {
+			throw redirect(302, '/');
+		}
+
+		const formData = await request.formData();
+		const objectiveId = formData.get('objective_id') as string;
+		const isCompleted = formData.get('is_completed') === '1' ? 0 : 1;
+
+		if (!objectiveId) {
+			return fail(400, { error: '目標IDが必要です' });
+		}
+
+		const now = new Date().toISOString();
+
+		await db.execute(
+			`UPDATE goal_objectives SET is_completed = :isCompleted, updated_at = :now WHERE id = :objectiveId`,
+			{ objectiveId, isCompleted, now }
+		);
+
+		return { success: true };
+	},
+
+	deleteObjective: async ({ request, locals }) => {
+		if (!locals.user) {
+			throw redirect(302, '/');
+		}
+
+		const formData = await request.formData();
+		const objectiveId = formData.get('objective_id') as string;
+
+		if (!objectiveId) {
+			return fail(400, { error: '目標IDが必要です' });
+		}
+
+		await db.execute(`DELETE FROM goal_objectives WHERE id = :objectiveId`, { objectiveId });
+
+		return { success: true };
 	}
 };

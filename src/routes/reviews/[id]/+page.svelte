@@ -1,30 +1,26 @@
 <script lang="ts">
 	import AppLayout from '$lib/components/AppLayout.svelte';
-	import GoalBlock from '$lib/components/GoalBlock.svelte';
 	import type { PageData, ActionData } from './$types';
+	import { enhance } from '$app/forms';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
 
 	const statusLabels: Record<string, string> = {
-		draft: '未通知',
-		pending: '依頼中',
+		draft: '下書き',
+		shared: 'URL発行済',
+		pending: '確認依頼中',
 		in_review: '確認中',
-		approved: '承認済',
+		approved: '確認OK',
 		rejected: '差し戻し'
 	};
 
 	const statusColors: Record<string, string> = {
-		draft: 'bg-slate-100 text-slate-600 ring-slate-400/20',
-		pending: 'bg-amber-50 text-amber-700 ring-amber-600/20',
-		in_review: 'bg-blue-50 text-blue-700 ring-blue-600/20',
-		approved: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
-		rejected: 'bg-red-50 text-red-700 ring-red-600/20'
-	};
-
-	const assigneeStatusLabels: Record<string, string> = {
-		pending: '未確認',
-		approved: '承認',
-		rejected: '差し戻し'
+		draft: 'bg-slate-100 text-slate-600',
+		shared: 'bg-purple-100 text-purple-700',
+		pending: 'bg-amber-100 text-amber-700',
+		in_review: 'bg-blue-100 text-blue-700',
+		approved: 'bg-emerald-100 text-emerald-700',
+		rejected: 'bg-red-100 text-red-700'
 	};
 
 	function formatDate(dateStr: string): string {
@@ -38,528 +34,404 @@
 		});
 	}
 
-	// URL type detection
-	type UrlType = 'youtube' | 'vimeo' | 'video' | 'image' | 'figma' | 'iframe';
-
-	function detectUrlType(url: string): UrlType {
-		const lowerUrl = url.toLowerCase();
-		if (lowerUrl.includes('youtube.com') || lowerUrl.includes('youtu.be')) return 'youtube';
-		if (lowerUrl.includes('vimeo.com')) return 'vimeo';
-		if (/\.(mp4|webm|ogg|mov|avi|mkv)(\?|$)/i.test(url)) return 'video';
-		if (/\.(jpg|jpeg|png|gif|webp|svg|bmp)(\?|$)/i.test(url)) return 'image';
-		if (lowerUrl.includes('figma.com')) return 'figma';
-		return 'iframe';
+	// Notion-style formatting
+	function renderFormattedText(text: string): string {
+		if (!text) return '';
+		return text
+			.split('\n')
+			.map(line => {
+				if (line.startsWith('💡 ')) return `<div class="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg my-3"><span class="text-2xl">💡</span><span class="text-amber-800 flex-1">${line.slice(2)}</span></div>`;
+				if (line.startsWith('📌 ')) return `<div class="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg my-3"><span class="text-2xl">📌</span><span class="text-red-800 flex-1">${line.slice(2)}</span></div>`;
+				if (line.startsWith('ℹ️ ')) return `<div class="flex gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg my-3"><span class="text-2xl">ℹ️</span><span class="text-blue-800 flex-1">${line.slice(3)}</span></div>`;
+				if (line.startsWith('✅ ')) return `<div class="flex gap-3 p-4 bg-green-50 border border-green-200 rounded-lg my-3"><span class="text-2xl">✅</span><span class="text-green-800 flex-1">${line.slice(2)}</span></div>`;
+				if (line.startsWith('⚠️ ')) return `<div class="flex gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg my-3"><span class="text-2xl">⚠️</span><span class="text-orange-800 flex-1">${line.slice(3)}</span></div>`;
+				if (line.startsWith('🚀 ')) return `<div class="flex gap-3 p-4 bg-purple-50 border border-purple-200 rounded-lg my-3"><span class="text-2xl">🚀</span><span class="text-purple-800 flex-1">${line.slice(2)}</span></div>`;
+				if (line.startsWith('### ')) return `<h3 class="text-lg font-semibold text-slate-800 mt-6 mb-3">${line.slice(4)}</h3>`;
+				if (line.startsWith('## ')) return `<h2 class="text-xl font-semibold text-slate-800 mt-6 mb-3">${line.slice(3)}</h2>`;
+				if (line.startsWith('# ')) return `<h1 class="text-2xl font-bold text-slate-900 mt-6 mb-3">${line.slice(2)}</h1>`;
+				if (line.startsWith('• ')) return `<div class="flex gap-3 ml-4 my-1"><span class="text-slate-400">•</span><span>${line.slice(2)}</span></div>`;
+				if (line.startsWith('☐ ')) return `<div class="flex gap-3 ml-4 my-1"><span class="text-slate-400 text-lg">☐</span><span>${line.slice(2)}</span></div>`;
+				if (line.startsWith('☑ ')) return `<div class="flex gap-3 ml-4 my-1"><span class="text-green-600 text-lg">☑</span><span class="line-through text-slate-400">${line.slice(2)}</span></div>`;
+				if (line.match(/^\d+\. /)) return `<div class="flex gap-3 ml-4 my-1"><span class="text-slate-500 font-medium">${line.match(/^\d+/)?.[0]}.</span><span>${line.replace(/^\d+\. /, '')}</span></div>`;
+				if (line.startsWith('> ')) return `<blockquote class="border-l-4 border-slate-300 pl-4 py-2 text-slate-600 italic my-3 bg-slate-50 rounded-r-lg">${line.slice(2)}</blockquote>`;
+				if (line === '---') return `<hr class="my-6 border-slate-200" />`;
+				if (line === '') return `<div class="h-3"></div>`;
+				return `<p class="my-2 text-slate-700 leading-relaxed">${line}</p>`;
+			})
+			.join('');
 	}
 
-	function getYouTubeEmbedUrl(url: string): string {
-		let videoId = '';
-		const watchMatch = url.match(/[?&]v=([^&]+)/);
-		if (watchMatch) videoId = watchMatch[1];
-		const shortMatch = url.match(/youtu\.be\/([^?&]+)/);
-		if (shortMatch) videoId = shortMatch[1];
-		const embedMatch = url.match(/youtube\.com\/embed\/([^?&]+)/);
-		if (embedMatch) videoId = embedMatch[1];
-		return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
-	}
-
-	function getVimeoEmbedUrl(url: string): string {
-		const match = url.match(/vimeo\.com\/(\d+)/);
-		return match ? `https://player.vimeo.com/video/${match[1]}` : url;
-	}
-
-	function getUrlTypeLabel(type: UrlType): { label: string; color: string } {
-		const labels: Record<UrlType, { label: string; color: string }> = {
-			youtube: { label: 'YouTube', color: 'bg-red-100 text-red-700' },
-			vimeo: { label: 'Vimeo', color: 'bg-blue-100 text-blue-700' },
-			video: { label: '動画', color: 'bg-purple-100 text-purple-700' },
-			image: { label: '画像', color: 'bg-green-100 text-green-700' },
-			figma: { label: 'Figma', color: 'bg-violet-100 text-violet-700' },
-			iframe: { label: 'Web', color: 'bg-slate-100 text-slate-700' }
-		};
-		return labels[type];
-	}
-
-	// Parse multiple URLs
-	const urls = data.review.target_url.split('\n').filter((url: string) => url.trim());
-	let activeUrlIndex = $state(0);
-	let currentUrl = $derived(urls[activeUrlIndex]);
-	let urlType = $derived(detectUrlType(currentUrl));
-
-	// Preview mode: desktop or mobile
-	type PreviewMode = 'desktop' | 'mobile';
-	let previewMode = $state<PreviewMode>('desktop');
-
-	// Build comment tree
-	function buildCommentTree(comments: typeof data.comments) {
-		const map = new Map();
-		const roots: typeof data.comments = [];
-		for (const comment of comments) {
-			map.set(comment.id, { ...comment, replies: [] });
+	function extractYouTubeId(text: string): string | null {
+		if (!text) return null;
+		const patterns = [
+			/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+			/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/
+		];
+		for (const pattern of patterns) {
+			const match = text.match(pattern);
+			if (match) return match[1];
 		}
-		for (const comment of comments) {
-			const node = map.get(comment.id);
-			if (comment.parent_id) {
-				const parent = map.get(comment.parent_id);
-				if (parent) parent.replies.push(node);
-				else roots.push(node);
-			} else {
-				roots.push(node);
-			}
-		}
-		return roots;
+		return null;
 	}
 
-	const commentTree = buildCommentTree(data.comments);
-	let replyingTo: string | null = $state(null);
-	let commentText = $state('');
-	let urlCopied = $state(false);
+	let formattedContent = $derived(renderFormattedText(data.review.description || ''));
+	let youtubeId = $derived(extractYouTubeId(data.review.description || ''));
 
-	function copyPublicUrl() {
-		if (data.publicUrl) {
-			const fullUrl = window.location.origin + data.publicUrl;
-			navigator.clipboard.writeText(fullUrl).then(() => {
-				urlCopied = true;
-				setTimeout(() => urlCopied = false, 2000);
-			});
-		}
+	// Edit mode state
+	let isEditMode = $state(data.review.status === 'draft' && !data.review.description);
+	let editTitle = $state(data.review.title);
+	let editDescription = $state(data.review.description || '');
+	let editEmoji = $state(data.review.emoji || '📄');
+	let showEmojiPicker = $state(false);
+
+	// Modal states
+	let rejectReason = $state('');
+	let sendNotification = $state(true);
+	let showApproveModal = $state(false);
+	let showDeleteModal = $state(false);
+
+	// Emojis
+	const emojis = [
+		'📄', '📝', '📋', '📌', '📎', '🎯', '🎬', '🎥', '📺', '🎵',
+		'💡', '⭐', '🔥', '✨', '💫', '🚀', '💪', '👍', '✅', '❌',
+		'⚠️', '📢', '💬', '📊', '📈', '📉', '🗂️', '📁', '🔗', '🌐'
+	];
+
+	// Block templates
+	const blockTemplates = [
+		{ emoji: '💡', label: '黄色', bg: 'bg-amber-50', border: 'border-amber-200' },
+		{ emoji: '📌', label: '赤', bg: 'bg-red-50', border: 'border-red-200' },
+		{ emoji: 'ℹ️', label: '青', bg: 'bg-blue-50', border: 'border-blue-200' },
+		{ emoji: '✅', label: '緑', bg: 'bg-green-50', border: 'border-green-200' },
+		{ emoji: '⚠️', label: 'オレンジ', bg: 'bg-orange-50', border: 'border-orange-200' },
+		{ emoji: '🚀', label: '紫', bg: 'bg-purple-50', border: 'border-purple-200' },
+	];
+
+	const headingTemplates = [
+		{ icon: 'H1', label: '見出し1', insert: '# ' },
+		{ icon: 'H2', label: '見出し2', insert: '## ' },
+		{ icon: 'H3', label: '見出し3', insert: '### ' },
+	];
+
+	const listTemplates = [
+		{ icon: '•', label: '箇条書き', insert: '• ' },
+		{ icon: '☐', label: 'チェック', insert: '☐ ' },
+		{ icon: '1.', label: '番号', insert: '1. ' },
+		{ icon: '>', label: '引用', insert: '> ' },
+	];
+
+	function insertBlock(prefix: string) {
+		const needsNewline = editDescription.length > 0 && !editDescription.endsWith('\n');
+		editDescription = editDescription + (needsNewline ? '\n' : '') + prefix;
 	}
+
+	function insertDivider() {
+		const needsNewline = editDescription.length > 0 && !editDescription.endsWith('\n');
+		editDescription = editDescription + (needsNewline ? '\n' : '') + '---\n';
+	}
+
+	$effect(() => {
+		editTitle = data.review.title;
+		editDescription = data.review.description || '';
+		editEmoji = data.review.emoji || '📄';
+	});
+
+	$effect(() => {
+		if (form?.success && form?.action === 'rejected') {
+			rejectReason = '';
+		}
+		if (form?.success && form?.action === 'updated') {
+			isEditMode = false;
+		}
+	});
+
 </script>
 
 <AppLayout user={data.user}>
-	<div class="max-w-[1800px] mx-auto">
-		<!-- Header -->
-		<div class="mb-6">
-			<a href="/reviews" class="inline-flex items-center gap-1 text-slate-500 hover:text-slate-700 text-sm mb-3">
-				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-				</svg>
-				一覧に戻る
+	<div class="max-w-3xl mx-auto px-4">
+		<!-- Back link -->
+		<div class="mb-4">
+			<a href="/reviews" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
+				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+				チェック一覧に戻る
 			</a>
-			<div class="flex flex-wrap items-center gap-3 mb-2">
-				<h1 class="text-2xl font-bold text-slate-900">{data.review.title}</h1>
-				<span class="px-2.5 py-1 text-xs font-medium rounded-full ring-1 ring-inset {statusColors[data.review.status]}">
-					{statusLabels[data.review.status]}
-				</span>
-				{#if data.review.status === 'draft' && data.isRequester}
-					<form method="POST" action="?/sendNotifications" class="inline">
-						<button
-							type="submit"
-							class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg flex items-center gap-1.5 transition-colors"
-						>
-							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-							</svg>
-							チェック依頼を送る
-						</button>
-					</form>
-				{/if}
-			</div>
-			<p class="text-sm text-slate-500">
-				{data.review.requester_name} さんが {formatDate(data.review.created_at)} に依頼
-			</p>
 		</div>
 
-		<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-			<!-- Left: Preview Panel -->
-			<div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-				<div class="px-6 py-4 border-b border-slate-100">
-					<div class="flex items-center justify-between">
-						<div class="flex items-center gap-3">
-							<h2 class="text-lg font-semibold text-slate-900">プレビュー</h2>
-							{#if urls.length > 1}
-								<span class="px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-700 rounded">{urls.length}件</span>
-							{/if}
-						</div>
+		{#if form?.success}
+			<div class="mb-6 bg-emerald-50 border border-emerald-200 text-emerald-700 px-6 py-4 rounded-xl">
+				{#if form.action === 'approved'}
+					確認OKを送信しました。
+				{:else if form.action === 'rejected'}
+					コメントを送信しました。
+				{:else if form.action === 'updated'}
+					保存しました。
+				{/if}
+			</div>
+		{/if}
 
-						<!-- Device Toggle -->
-						<div class="flex items-center gap-2">
-							<div class="flex bg-slate-100 rounded-lg p-1">
-								<button
-									type="button"
-									onclick={() => previewMode = 'desktop'}
-									class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 {previewMode === 'desktop' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
-								>
-									<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-									</svg>
-									PC
-								</button>
-								<button
-									type="button"
-									onclick={() => previewMode = 'mobile'}
-									class="px-3 py-1.5 rounded-md text-sm font-medium transition-colors flex items-center gap-1.5 {previewMode === 'mobile' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}"
-								>
-									<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-									</svg>
-									スマホ
-								</button>
+		{#if form?.error}
+			<div class="mb-6 bg-red-50 border border-red-200 text-red-700 px-6 py-4 rounded-xl">
+				{form.error}
+			</div>
+		{/if}
+
+		<!-- Edit Mode (Notion-style) -->
+		{#if isEditMode}
+			<form method="POST" action="?/update" use:enhance class="min-h-[80vh]">
+				<input type="hidden" name="emoji" value={editEmoji} />
+
+				<!-- Floating Save Button -->
+				<div class="fixed top-4 right-4 z-40 flex gap-2">
+					<button type="button" onclick={() => isEditMode = false} class="px-4 py-2 text-sm text-slate-600 bg-white hover:bg-slate-100 rounded-lg shadow-lg border border-slate-200">キャンセル</button>
+					<button type="submit" class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-lg">保存</button>
+				</div>
+
+				<!-- Emoji Icon (hoverable) -->
+				<div class="mb-4 relative">
+					<button type="button" onclick={() => showEmojiPicker = !showEmojiPicker} class="w-16 h-16 hover:bg-slate-100 rounded-xl flex items-center justify-center text-5xl transition-colors cursor-pointer">
+						{editEmoji}
+					</button>
+					{#if showEmojiPicker}
+						<div class="absolute top-18 left-0 bg-white rounded-xl shadow-2xl border border-slate-200 p-4 z-50 w-80">
+							<div class="grid grid-cols-10 gap-1">
+								{#each emojis as emoji}
+									<button type="button" onclick={() => { editEmoji = emoji; showEmojiPicker = false; }} class="w-8 h-8 flex items-center justify-center text-xl hover:bg-slate-100 rounded transition-colors">
+										{emoji}
+									</button>
+								{/each}
 							</div>
-							<a
-								href={urls[activeUrlIndex]}
-								target="_blank"
-								rel="noopener noreferrer"
-								class="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-								title="新しいタブで開く"
-							>
-								<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-								</svg>
-							</a>
-						</div>
-					</div>
-
-					<!-- URL Tabs -->
-					{#if urls.length > 1}
-						<div class="flex gap-2 mt-4 overflow-x-auto pb-1">
-							{#each urls as url, index}
-								{@const urlType = detectUrlType(url)}
-								{@const typeInfo = getUrlTypeLabel(urlType)}
-								<button
-									type="button"
-									onclick={() => activeUrlIndex = index}
-									class="shrink-0 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors {activeUrlIndex === index ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}"
-								>
-									<span class="flex items-center gap-1.5">
-										<span class="w-5 h-5 rounded text-xs flex items-center justify-center {activeUrlIndex === index ? 'bg-white/20' : typeInfo.color}">{index + 1}</span>
-										{typeInfo.label}
-									</span>
-								</button>
-							{/each}
 						</div>
 					{/if}
 				</div>
 
-				<!-- Preview Container -->
-				<div class="p-4 bg-slate-50 min-h-[600px] flex items-start justify-center">
+				<!-- Title (Notion-style: no border, large) -->
+				<input type="text" name="title" bind:value={editTitle} placeholder="無題" required class="w-full text-4xl font-bold text-slate-900 bg-transparent border-0 focus:outline-none focus:ring-0 placeholder-slate-300 mb-2" />
 
-					<div
-						class="bg-white rounded-xl shadow-lg overflow-hidden transition-all duration-300 {previewMode === 'mobile' ? 'w-[375px]' : 'w-full'}"
-						style={previewMode === 'mobile' ? 'max-width: 375px;' : ''}
-					>
-						<!-- Device Frame for Mobile -->
-						{#if previewMode === 'mobile'}
-							<div class="bg-slate-800 px-4 py-2 flex items-center justify-center">
-								<div class="w-20 h-1 bg-slate-600 rounded-full"></div>
-							</div>
-						{/if}
-
-						<div class="bg-slate-100 border border-slate-200 {previewMode === 'mobile' ? 'rounded-b-xl' : 'rounded-xl'}">
-							{#if urlType === 'youtube'}
-								<div class="aspect-video">
-									<iframe
-										src={getYouTubeEmbedUrl(currentUrl)}
-										title="YouTube video"
-										class="w-full h-full"
-										frameborder="0"
-										allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-										allowfullscreen
-									></iframe>
-								</div>
-							{:else if urlType === 'vimeo'}
-								<div class="aspect-video">
-									<iframe
-										src={getVimeoEmbedUrl(currentUrl)}
-										title="Vimeo video"
-										class="w-full h-full"
-										frameborder="0"
-										allow="autoplay; fullscreen; picture-in-picture"
-										allowfullscreen
-									></iframe>
-								</div>
-							{:else if urlType === 'video'}
-								<div class="aspect-video bg-black">
-									<video src={currentUrl} controls class="w-full h-full">
-										<track kind="captions" />
-									</video>
-								</div>
-							{:else if urlType === 'image'}
-								<div class="flex items-center justify-center p-4 min-h-[400px]">
-									<img src={currentUrl} alt="Preview" class="max-w-full max-h-[500px] object-contain" />
-								</div>
-							{:else if urlType === 'figma'}
-								<div class="{previewMode === 'mobile' ? 'h-[600px]' : 'h-[700px]'}">
-									<iframe
-										src={currentUrl.replace('figma.com/file', 'figma.com/embed').replace('figma.com/design', 'figma.com/embed')}
-										title="Figma"
-										class="w-full h-full"
-										allowfullscreen
-									></iframe>
-								</div>
-							{:else}
-								<iframe
-									src={currentUrl}
-									title="Preview"
-									class="w-full {previewMode === 'mobile' ? 'h-[600px]' : 'h-[700px]'}"
-									sandbox="allow-scripts allow-same-origin"
-								></iframe>
-							{/if}
-						</div>
-
-						{#if previewMode === 'mobile'}
-							<div class="bg-slate-800 px-4 py-3 flex items-center justify-center">
-								<div class="w-10 h-10 rounded-full border-2 border-slate-600"></div>
-							</div>
-						{/if}
-					</div>
+				<!-- Toolbar (subtle) -->
+				<div class="flex flex-wrap gap-1 mb-4 py-2 border-b border-slate-100 opacity-60 hover:opacity-100 transition-opacity">
+					{#each headingTemplates as tmpl}
+						<button type="button" onclick={() => insertBlock(tmpl.insert)} class="px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded transition-colors">{tmpl.icon}</button>
+					{/each}
+					<span class="text-slate-200">|</span>
+					{#each listTemplates as tmpl}
+						<button type="button" onclick={() => insertBlock(tmpl.insert)} class="px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded transition-colors">{tmpl.icon}</button>
+					{/each}
+					<span class="text-slate-200">|</span>
+					{#each blockTemplates as tmpl}
+						<button type="button" onclick={() => insertBlock(tmpl.emoji + ' ')} class="w-6 h-6 flex items-center justify-center text-sm hover:bg-slate-100 rounded transition-colors">{tmpl.emoji}</button>
+					{/each}
+					<span class="text-slate-200">|</span>
+					<button type="button" onclick={insertDivider} class="px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded transition-colors">─</button>
 				</div>
 
-				<div class="px-4 py-3 border-t border-slate-100 bg-white">
-					<div class="flex items-center gap-2">
-						<span class="px-2 py-0.5 text-xs font-medium rounded {typeInfo.color}">{typeInfo.label}</span>
-						<p class="text-xs text-slate-400 break-all flex-1 truncate">{currentUrl}</p>
-					</div>
-				</div>
-			</div>
-
-			<!-- Right: Info & Actions -->
-			<div class="space-y-6">
-				<!-- Review Actions -->
-				{#if data.isAssignee && data.myAssignment?.status === 'pending'}
-					<div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-6 text-white">
-						<h2 class="text-lg font-semibold mb-4">確認アクション</h2>
-						<p class="text-blue-100 text-sm mb-4">このレビューの確認をお願いします</p>
-						<div class="flex gap-3">
-							<form method="POST" action="?/approve" class="flex-1">
-								<button type="submit" class="w-full px-4 py-3 bg-white text-emerald-600 rounded-xl hover:bg-emerald-50 font-semibold transition-colors flex items-center justify-center gap-2">
-									<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-									</svg>
-									確認OK
-								</button>
-							</form>
-							<form method="POST" action="?/reject" class="flex-1">
-								<button type="submit" class="w-full px-4 py-3 bg-white/20 text-white rounded-xl hover:bg-white/30 font-semibold transition-colors flex items-center justify-center gap-2">
-									<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-									</svg>
-									差し戻し
-								</button>
-							</form>
-						</div>
+				<!-- YouTube Preview (if URL detected) -->
+				{#if extractYouTubeId(editDescription)}
+					<div class="mb-4 rounded-xl overflow-hidden shadow-lg max-w-2xl">
+						<iframe width="100%" height="360" src="https://www.youtube.com/embed/{extractYouTubeId(editDescription)}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 					</div>
 				{/if}
 
-				<!-- Public URL Share -->
-				{#if data.publicUrl && data.isRequester}
-					<div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-						<div class="px-6 py-4 border-b border-slate-100">
-							<h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
-								<svg class="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-								</svg>
-								外部共有URL
-							</h2>
-						</div>
-						<div class="p-6">
-							<p class="text-sm text-slate-600 mb-3">
-								このURLを共有すると、ログインなしでレビュー・確認ができます。
-							</p>
-							<div class="flex gap-2">
-								<input
-									type="text"
-									readonly
-									value={typeof window !== 'undefined' ? window.location.origin + data.publicUrl : data.publicUrl}
-									class="flex-1 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-700 font-mono"
-								/>
-								<button
-									type="button"
-									onclick={copyPublicUrl}
-									class="px-4 py-2.5 rounded-xl font-medium transition-all {urlCopied ? 'bg-emerald-500 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'} flex items-center gap-2"
-								>
-									{#if urlCopied}
-										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-										</svg>
-										コピー済
-									{:else}
-										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-										</svg>
-										コピー
-									{/if}
-								</button>
+				<!-- Content Editor (Notion-style: no visible border) -->
+				<textarea name="description" bind:value={editDescription} placeholder="何か入力するか、AIに依頼するか、/でコマンド..." rows="30" class="w-full bg-transparent border-0 focus:outline-none focus:ring-0 resize-none text-base leading-relaxed text-slate-700 placeholder-slate-400"></textarea>
+			</form>
+
+		<!-- View Mode -->
+		{:else}
+			<div class="bg-white rounded-2xl shadow-xl border border-slate-200/50">
+				<!-- Document Header -->
+				<div class="px-6 sm:px-8 pt-6 sm:pt-8 pb-4">
+					<div class="flex items-start justify-between gap-4">
+						<div class="flex items-start gap-4">
+							<div class="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center text-4xl shrink-0">
+								{data.review.emoji || '📄'}
 							</div>
-						</div>
-					</div>
-				{/if}
-
-				<!-- Related Goals -->
-				{#if data.goals && data.goals.length > 0}
-					<div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-						<div class="px-6 py-4 border-b border-slate-100">
-							<h2 class="text-lg font-semibold text-slate-900 flex items-center gap-2">
-								<svg class="w-5 h-5 text-purple-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-								</svg>
-								関連プロジェクト
-							</h2>
-						</div>
-						<div class="p-4 space-y-3">
-							{#each data.goals as goal}
-								<GoalBlock {goal} />
-							{/each}
-						</div>
-					</div>
-				{/if}
-
-				<!-- Description -->
-				{#if data.review.description}
-					<div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-						<div class="px-6 py-4 border-b border-slate-100">
-							<h2 class="text-lg font-semibold text-slate-900">説明・依頼内容</h2>
-						</div>
-						<div class="p-6">
-							<p class="text-slate-700 whitespace-pre-wrap">{data.review.description}</p>
-						</div>
-					</div>
-				{/if}
-
-				<!-- Info & Assignees -->
-				<div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-					<div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-						<div class="px-5 py-3 border-b border-slate-100">
-							<h3 class="font-semibold text-slate-900">詳細情報</h3>
-						</div>
-						<dl class="divide-y divide-slate-100 text-sm">
-							<div class="px-5 py-3 flex justify-between">
-								<dt class="text-slate-500">依頼者</dt>
-								<dd class="font-medium text-slate-900">{data.review.requester_name}</dd>
-							</div>
-							{#if data.tags && data.tags.length > 0}
-								<div class="px-5 py-3">
-									<dt class="text-slate-500 mb-2">タグ</dt>
-									<dd class="flex flex-wrap gap-1.5">
-										{#each data.tags as tag}
-											<span
-												class="px-3 py-1 text-xs font-bold rounded-full shadow-sm"
-												style="background-color: {tag.color}; color: white"
-											>
-												{tag.name}
-											</span>
-										{/each}
-									</dd>
-								</div>
-							{/if}
-							<div class="px-5 py-3 flex justify-between">
-								<dt class="text-slate-500">URL数</dt>
-								<dd class="font-medium text-slate-900">{urls.length}件</dd>
-							</div>
-							{#if data.review.due_date}
-								<div class="px-5 py-3 flex justify-between">
-									<dt class="text-slate-500">期限</dt>
-									<dd class="font-medium text-slate-900">{formatDate(data.review.due_date)}</dd>
-								</div>
-							{/if}
-						</dl>
-					</div>
-
-					<div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-						<div class="px-5 py-3 border-b border-slate-100">
-							<h3 class="font-semibold text-slate-900">レビュワー</h3>
-						</div>
-						<ul class="divide-y divide-slate-100">
-							{#each data.assignees as assignee}
-								<li class="px-5 py-3 flex items-center justify-between">
-									<div class="flex items-center gap-2">
-										<div class="w-7 h-7 bg-gradient-to-br {assignee.status === 'approved' ? 'from-emerald-400 to-emerald-600' : assignee.status === 'rejected' ? 'from-red-400 to-red-600' : 'from-slate-400 to-slate-600'} rounded-full flex items-center justify-center text-white font-semibold text-xs">
-											{assignee.name.charAt(0)}
-										</div>
-										<span class="text-sm font-medium text-slate-900">{assignee.name}</span>
-									</div>
-									<span class="px-2 py-0.5 text-xs font-medium rounded-full {assignee.status === 'approved' ? 'bg-emerald-50 text-emerald-700' : assignee.status === 'rejected' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'}">
-										{assigneeStatusLabels[assignee.status]}
+							<div>
+								<h1 class="text-2xl sm:text-3xl font-bold text-slate-900 mb-2">{data.review.title}</h1>
+								<div class="flex items-center gap-3 flex-wrap">
+									<span class="px-3 py-1.5 text-sm font-medium rounded-full {statusColors[data.review.status]}">
+										{statusLabels[data.review.status]}
 									</span>
-								</li>
-							{/each}
-						</ul>
+									<span class="text-sm text-slate-500">
+										依頼者: {data.review.requester_name}
+									</span>
+								</div>
+							</div>
+						</div>
+						<div class="flex items-center gap-2">
+							{#if data.review.status === 'draft' || data.review.status === 'rejected'}
+								<button type="button" onclick={() => isEditMode = true} class="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="編集">
+									<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+								</button>
+							{/if}
+							<button type="button" onclick={() => showDeleteModal = true} class="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="削除">
+								<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+							</button>
+						</div>
 					</div>
+					<p class="text-sm text-slate-500 mt-4">
+						作成日: {formatDate(data.review.created_at)}
+						{#if data.review.due_date}
+							<span class="mx-2">•</span>
+							<span class="text-amber-600">期限: {formatDate(data.review.due_date)}</span>
+						{/if}
+					</p>
 				</div>
 
-				<!-- Comments -->
-				<div class="bg-white rounded-2xl shadow-sm border border-slate-200/60 overflow-hidden">
-					<div class="px-6 py-4 border-b border-slate-100">
-						<h2 class="text-lg font-semibold text-slate-900">
-							コメント <span class="text-slate-400 font-normal">({data.comments.length})</span>
-						</h2>
+				<!-- Public URL -->
+				{#if data.review.public_token}
+					<div class="mx-6 sm:mx-8 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+						<p class="text-sm font-medium text-blue-700 mb-2">共有URL（外部向け）</p>
+						<div class="flex items-center gap-2">
+							<input type="text" readonly value="{typeof window !== 'undefined' ? window.location.origin : ''}/p/{data.review.public_token}" class="flex-1 px-3 py-2 text-sm bg-white border border-blue-200 rounded-lg text-slate-600" />
+							<button type="button" onclick={() => navigator.clipboard.writeText(`${window.location.origin}/p/${data.review.public_token}`)} class="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700">コピー</button>
+						</div>
 					</div>
-					<div class="p-6">
-						{#if form?.error}
-							<div class="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4">{form.error}</div>
-						{/if}
+				{/if}
 
-						<form method="POST" action="?/comment" class="mb-6">
-							<input type="hidden" name="parentId" value="" />
-							<textarea
-								name="content"
-								rows="3"
-								placeholder="コメントを入力..."
-								class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-								bind:value={commentText}
-							></textarea>
-							<div class="mt-3 flex justify-end">
-								<button type="submit" class="px-5 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors">
-									投稿
+				<!-- Divider -->
+				<div class="mx-6 sm:mx-8 my-4 border-t border-slate-200"></div>
+
+				<!-- Content -->
+				<div class="px-6 sm:px-8 py-6">
+					{#if youtubeId}
+						<div class="mb-6 rounded-xl overflow-hidden shadow-lg">
+							<iframe width="100%" height="400" src="https://www.youtube.com/embed/{youtubeId}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+						</div>
+					{/if}
+					{#if data.review.description}
+						<div class="prose prose-slate max-w-none">
+							{@html formattedContent}
+						</div>
+					{:else}
+						<div class="text-center py-12">
+							<p class="text-slate-400 italic mb-4">内容がありません</p>
+							{#if data.review.status === 'draft'}
+								<button type="button" onclick={() => isEditMode = true} class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+									内容を追加する
 								</button>
+							{/if}
+						</div>
+					{/if}
+				</div>
+
+				<!-- Action Section -->
+				{#if data.review.status === 'pending' || data.review.status === 'shared' || data.review.status === 'draft'}
+					<div class="px-6 sm:px-8 py-6 bg-slate-50 border-t border-slate-200 rounded-b-2xl">
+						<p class="text-sm text-slate-600 mb-4">内容を確認して、コメントを入力するか確認OKを押してください。</p>
+
+						<form method="POST" action="?/reject" use:enhance class="mb-4">
+							<input type="hidden" name="sendNotification" value={sendNotification ? '1' : '0'} />
+							<div class="bg-white border border-slate-300 rounded-xl p-4 shadow-inner mb-3">
+								<textarea name="reason" rows="4" bind:value={rejectReason} placeholder="コメント・修正依頼を入力..." class="w-full bg-amber-50 px-4 py-3 border border-amber-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none text-slate-700"></textarea>
+								<div class="flex items-center justify-between mt-3 flex-wrap gap-3">
+									<label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+										<input type="checkbox" bind:checked={sendNotification} class="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
+										<svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+										メールで通知する
+									</label>
+									<button type="submit" disabled={!rejectReason.trim()} class="px-6 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2">
+										<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+										差し戻し
+									</button>
+								</div>
 							</div>
 						</form>
 
-						<div class="space-y-4 max-h-[400px] overflow-y-auto">
-							{#each commentTree as comment}
-								<div class="bg-slate-50 rounded-xl p-4">
-									<div class="flex items-start gap-3">
-										<div class="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center text-white font-semibold text-xs shrink-0">
-											{comment.user_name.charAt(0)}
+						<button type="button" onclick={() => showApproveModal = true} class="w-full px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium flex items-center justify-center gap-2">
+							<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+							確認OK
+						</button>
+					</div>
+				{:else if data.review.status === 'approved'}
+					<div class="px-6 sm:px-8 py-6 bg-emerald-50 border-t border-emerald-200 rounded-b-2xl text-center">
+						<svg class="w-12 h-12 text-emerald-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+						<p class="text-emerald-700 font-medium">このドキュメントは確認OKされました</p>
+					</div>
+				{:else if data.review.status === 'rejected'}
+					<div class="px-6 sm:px-8 py-6 bg-red-50 border-t border-red-200 rounded-b-2xl">
+						<div class="text-center mb-4">
+							<svg class="w-12 h-12 text-red-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+							<p class="text-red-700 font-medium">このドキュメントは差し戻しされました</p>
+						</div>
+						<div class="flex justify-center">
+							<button type="button" onclick={() => isEditMode = true} class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-medium flex items-center gap-2">
+								<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+								修正して再依頼
+							</button>
+						</div>
+					</div>
+				{/if}
+			</div>
+
+			<!-- Activity Timeline -->
+			{#if data.comments && data.comments.length > 0}
+				<div class="mt-6 bg-white rounded-2xl shadow-lg border border-slate-200/50 overflow-hidden">
+					<div class="px-6 py-4 border-b border-slate-100">
+						<h3 class="font-semibold text-slate-900 flex items-center gap-2">
+							<svg class="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+							アクティビティ ({data.comments.length})
+						</h3>
+					</div>
+					<div class="p-6">
+						<div class="relative">
+							<div class="absolute left-4 top-0 bottom-0 w-0.5 bg-slate-200"></div>
+							<div class="space-y-6">
+								{#each data.comments as comment}
+									{@const isApproval = comment.content.includes('確認OK')}
+									{@const isRejection = comment.content.includes('差し戻し') || comment.content.includes('コメント')}
+									<div class="relative flex gap-4">
+										<div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center z-10 {isApproval ? 'bg-emerald-100' : isRejection ? 'bg-red-100' : 'bg-slate-100'}">
+											{#if isApproval}
+												<svg class="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+											{:else}
+												<svg class="w-4 h-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+											{/if}
 										</div>
-										<div class="flex-1 min-w-0">
-											<div class="flex items-center gap-2 mb-1">
-												<span class="font-medium text-slate-900 text-sm">{comment.user_name}</span>
-												<span class="text-xs text-slate-400">{formatDate(comment.created_at)}</span>
+										<div class="flex-1 pb-2">
+											<div class="rounded-xl p-4 {isApproval ? 'bg-emerald-50 border border-emerald-200' : isRejection ? 'bg-red-50 border border-red-200' : 'bg-slate-50 border border-slate-200'}">
+												<p class="text-sm whitespace-pre-wrap {isApproval ? 'text-emerald-800' : isRejection ? 'text-red-800' : 'text-slate-700'}">{comment.content}</p>
 											</div>
-											<p class="text-slate-700 text-sm whitespace-pre-wrap">{comment.content}</p>
-											<button
-												type="button"
-												class="mt-1 text-xs text-blue-600 hover:text-blue-700 font-medium"
-												onclick={() => replyingTo = replyingTo === comment.id ? null : comment.id}
-											>
-												返信
-											</button>
+											<p class="text-xs text-slate-400 mt-2 ml-1">{formatDate(comment.created_at)}</p>
 										</div>
 									</div>
-
-									{#if replyingTo === comment.id}
-										<form method="POST" action="?/comment" class="mt-3 ml-11">
-											<input type="hidden" name="parentId" value={comment.id} />
-											<textarea name="content" rows="2" placeholder="返信..." class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none"></textarea>
-											<div class="mt-2 flex justify-end gap-2">
-												<button type="button" class="px-3 py-1 text-xs text-slate-500" onclick={() => replyingTo = null}>キャンセル</button>
-												<button type="submit" class="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg">返信</button>
-											</div>
-										</form>
-									{/if}
-
-									{#if comment.replies?.length > 0}
-										<div class="mt-3 ml-11 space-y-2">
-											{#each comment.replies as reply}
-												<div class="bg-white rounded-lg p-3 border border-slate-200">
-													<div class="flex items-center gap-2 mb-1">
-														<div class="w-6 h-6 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center text-white text-xs">{reply.user_name.charAt(0)}</div>
-														<span class="font-medium text-slate-900 text-xs">{reply.user_name}</span>
-														<span class="text-xs text-slate-400">{formatDate(reply.created_at)}</span>
-													</div>
-													<p class="text-slate-700 text-xs whitespace-pre-wrap ml-8">{reply.content}</p>
-												</div>
-											{/each}
-										</div>
-									{/if}
-								</div>
-							{:else}
-								<div class="text-center py-6 text-slate-400 text-sm">コメントはまだありません</div>
-							{/each}
+								{/each}
+							</div>
 						</div>
 					</div>
 				</div>
-			</div>
-		</div>
+			{/if}
+		{/if}
 	</div>
 </AppLayout>
+
+<!-- Approve Modal -->
+{#if showApproveModal}
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick={() => showApproveModal = false}>
+		<div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onclick={(e) => e.stopPropagation()}>
+			<h3 class="text-xl font-bold text-slate-900 mb-4">確認OK</h3>
+			<p class="text-slate-600 mb-4">このドキュメントを確認OKとして承認しますか？</p>
+			<form method="POST" action="?/approve" use:enhance>
+				<div class="flex gap-3">
+					<button type="button" onclick={() => showApproveModal = false} class="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50">キャンセル</button>
+					<button type="submit" class="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 font-medium">確認OK</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}
+
+<!-- Delete Modal -->
+{#if showDeleteModal}
+	<div class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onclick={() => showDeleteModal = false}>
+		<div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onclick={(e) => e.stopPropagation()}>
+			<h3 class="text-xl font-bold text-slate-900 mb-4">チェックを削除</h3>
+			<p class="text-slate-600 mb-4">「{data.review.title}」を削除しますか？この操作は取り消せません。</p>
+			<form method="POST" action="?/delete" use:enhance>
+				<div class="flex gap-3">
+					<button type="button" onclick={() => showDeleteModal = false} class="flex-1 px-4 py-2 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50">キャンセル</button>
+					<button type="submit" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 font-medium">削除する</button>
+				</div>
+			</form>
+		</div>
+	</div>
+{/if}

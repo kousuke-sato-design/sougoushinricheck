@@ -34,11 +34,20 @@
 		});
 	}
 
-	// Notion-style formatting
-	function renderFormattedText(text: string): string {
+	// Notion-style formatting (URLs are excluded since they're shown as cards)
+	function renderFormattedText(text: string, excludeUrls: boolean = false): string {
 		if (!text) return '';
+
+		// URL pattern to detect standalone URL lines
+		const urlPattern = /^https?:\/\/[^\s]+$/;
+
 		return text
 			.split('\n')
+			.filter(line => {
+				// Skip lines that are just URLs (they'll be shown as cards)
+				if (excludeUrls && urlPattern.test(line.trim())) return false;
+				return true;
+			})
 			.map(line => {
 				if (line.startsWith('💡 ')) return `<div class="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-lg my-3"><span class="text-2xl">💡</span><span class="text-amber-800 flex-1">${line.slice(2)}</span></div>`;
 				if (line.startsWith('📌 ')) return `<div class="flex gap-3 p-4 bg-red-50 border border-red-200 rounded-lg my-3"><span class="text-2xl">📌</span><span class="text-red-800 flex-1">${line.slice(2)}</span></div>`;
@@ -126,9 +135,10 @@
 		return '🔗';
 	}
 
-	let formattedContent = $derived(renderFormattedText(data.review.description || ''));
-	let youtubeId = $derived(extractYouTubeId(data.review.description || ''));
 	let extractedUrls = $derived(extractUrls(data.review.description || ''));
+	let formattedContent = $derived(renderFormattedText(data.review.description || '', extractedUrls.length > 0));
+	let hasTextContent = $derived(formattedContent.replace(/<div class="h-3"><\/div>/g, '').trim().length > 0);
+	let youtubeId = $derived(extractYouTubeId(data.review.description || ''));
 
 	// Edit mode state
 	let isEditMode = $state(data.review.status === 'draft' && !data.review.description);
@@ -280,25 +290,25 @@
 				<!-- URL Link Cards Preview (Edit Mode) -->
 				{#if extractUrls(editDescription).length > 0}
 					{@const editUrls = extractUrls(editDescription)}
-					<div class="mb-4 grid gap-3 {editUrls.length === 1 ? 'grid-cols-1 max-w-2xl' : editUrls.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}">
+					<div class="mb-4 grid gap-3 {editUrls.length === 1 ? 'grid-cols-1 max-w-xl' : 'grid-cols-2'}">
 						{#each editUrls as linkInfo}
 							{#if linkInfo.isYoutube && linkInfo.youtubeId}
 								<!-- YouTube Embed Card -->
-								<div class="rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black">
+								<div class="{editUrls.length === 1 ? 'col-span-1' : 'col-span-2 sm:col-span-1'} rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black">
 									<iframe
 										width="100%"
-										height="{editUrls.length === 1 ? '360' : '200'}"
+										height="{editUrls.length === 1 ? '300' : '180'}"
 										src="https://www.youtube.com/embed/{linkInfo.youtubeId}"
 										title="YouTube video"
 										frameborder="0"
 										allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
 										allowfullscreen
 									></iframe>
-									<a href={linkInfo.url} target="_blank" rel="noopener noreferrer" class="block px-4 py-3 bg-slate-900 hover:bg-slate-800 transition-colors">
+									<a href={linkInfo.url} target="_blank" rel="noopener noreferrer" class="block px-3 py-2 bg-slate-900 hover:bg-slate-800 transition-colors">
 										<div class="flex items-center gap-2">
-											<span class="text-lg">🎬</span>
-											<span class="text-sm text-slate-300 truncate flex-1">{linkInfo.domain}</span>
-											<svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<span class="text-sm">🎬</span>
+											<span class="text-xs text-slate-300 truncate flex-1">{linkInfo.domain}</span>
+											<svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 											</svg>
 										</div>
@@ -310,18 +320,18 @@
 									href={linkInfo.url}
 									target="_blank"
 									rel="noopener noreferrer"
-									class="block rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white hover:shadow-lg hover:border-blue-300 transition-all group"
+									class="block rounded-xl border border-slate-200 bg-white hover:shadow-md hover:border-blue-300 transition-all group"
 								>
-									<div class="p-4">
-										<div class="flex items-start gap-3">
-											<div class="w-12 h-12 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
+									<div class="p-3">
+										<div class="flex items-center gap-3">
+											<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-xl shrink-0">
 												{getDomainIcon(linkInfo.domain)}
 											</div>
 											<div class="flex-1 min-w-0">
-												<p class="text-sm font-medium text-slate-900 mb-1 truncate">{linkInfo.domain}</p>
-												<p class="text-xs text-slate-500 truncate">{linkInfo.url}</p>
+												<p class="text-sm font-medium text-slate-900 truncate">{linkInfo.domain}</p>
+												<p class="text-xs text-slate-400 truncate">{linkInfo.url.replace(/^https?:\/\//, '').slice(0, 30)}...</p>
 											</div>
-											<svg class="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<svg class="w-4 h-4 text-slate-300 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 											</svg>
 										</div>
@@ -396,11 +406,11 @@
 				<div class="px-6 sm:px-8 py-6">
 					<!-- URL Link Cards -->
 					{#if extractedUrls.length > 0}
-						<div class="mb-6 grid gap-3 {extractedUrls.length === 1 ? 'grid-cols-1' : extractedUrls.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}">
+						<div class="grid gap-3 {extractedUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2 sm:grid-cols-2'}">
 							{#each extractedUrls as linkInfo}
 								{#if linkInfo.isYoutube && linkInfo.youtubeId}
 									<!-- YouTube Embed Card -->
-									<div class="col-span-1 {extractedUrls.length === 1 ? 'sm:col-span-1' : ''} rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black">
+									<div class="{extractedUrls.length === 1 ? 'col-span-1' : 'col-span-2 sm:col-span-1'} rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black">
 										<iframe
 											width="100%"
 											height="{extractedUrls.length === 1 ? '360' : '200'}"
@@ -410,11 +420,11 @@
 											allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
 											allowfullscreen
 										></iframe>
-										<a href={linkInfo.url} target="_blank" rel="noopener noreferrer" class="block px-4 py-3 bg-slate-900 hover:bg-slate-800 transition-colors">
+										<a href={linkInfo.url} target="_blank" rel="noopener noreferrer" class="block px-4 py-2 bg-slate-900 hover:bg-slate-800 transition-colors">
 											<div class="flex items-center gap-2">
-												<span class="text-lg">🎬</span>
-												<span class="text-sm text-slate-300 truncate flex-1">{linkInfo.domain}</span>
-												<svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<span class="text-sm">🎬</span>
+												<span class="text-xs text-slate-300 truncate flex-1">{linkInfo.domain}</span>
+												<svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 												</svg>
 											</div>
@@ -426,18 +436,18 @@
 										href={linkInfo.url}
 										target="_blank"
 										rel="noopener noreferrer"
-										class="block rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white hover:shadow-lg hover:border-blue-300 transition-all group"
+										class="{extractedUrls.length === 1 ? 'col-span-1' : 'col-span-1'} block rounded-xl border border-slate-200 bg-white hover:shadow-md hover:border-blue-300 transition-all group"
 									>
-										<div class="p-4">
-											<div class="flex items-start gap-3">
-												<div class="w-12 h-12 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
+										<div class="p-3">
+											<div class="flex items-center gap-3">
+												<div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-xl shrink-0">
 													{getDomainIcon(linkInfo.domain)}
 												</div>
 												<div class="flex-1 min-w-0">
-													<p class="text-sm font-medium text-slate-900 mb-1 truncate">{linkInfo.domain}</p>
-													<p class="text-xs text-slate-500 truncate">{linkInfo.url}</p>
+													<p class="text-sm font-medium text-slate-900 truncate">{linkInfo.domain}</p>
+													<p class="text-xs text-slate-400 truncate">{linkInfo.url.replace(/^https?:\/\//, '').slice(0, 40)}...</p>
 												</div>
-												<svg class="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<svg class="w-4 h-4 text-slate-300 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 												</svg>
 											</div>
@@ -448,11 +458,12 @@
 						</div>
 					{/if}
 
-					{#if data.review.description}
-						<div class="prose prose-slate max-w-none">
+					<!-- Text Content (if any besides URLs) -->
+					{#if hasTextContent}
+						<div class="prose prose-slate max-w-none {extractedUrls.length > 0 ? 'mt-6 pt-6 border-t border-slate-100' : ''}">
 							{@html formattedContent}
 						</div>
-					{:else}
+					{:else if extractedUrls.length === 0}
 						<div class="text-center py-12">
 							<p class="text-slate-400 italic mb-4">内容がありません</p>
 							{#if data.review.status === 'draft'}

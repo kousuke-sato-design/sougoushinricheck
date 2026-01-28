@@ -197,6 +197,9 @@
 		}
 	}
 
+	// 編集モード表示切り替え: 'split' = 2カラム, 'edit' = 編集のみ, 'preview' = プレビューのみ
+	let editViewMode = $state<'split' | 'edit' | 'preview'>('split');
+
 	// Modal states
 	let commentText = $state('');
 	let sendNotification = $state(false);
@@ -483,71 +486,158 @@
 				<!-- Content -->
 				<div class="px-6 sm:px-8 py-6">
 					{#if canEdit}
-						<!-- 編集モード: 左右分割（PC）/ 縦並び（モバイル） -->
+						<!-- 編集モード -->
 						{@const previewBlocks = parseContentBlocks(editDescription || '')}
-						<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-							<!-- 左: 編集エリア -->
-							<div>
-								<div class="flex items-center gap-2 mb-2">
-									<span class="text-sm font-medium text-slate-600">📝 編集</span>
+
+						<!-- 表示モード切り替えタブ -->
+						<div class="flex items-center gap-1 mb-4 p-1 bg-slate-100 rounded-lg w-fit">
+							<button
+								type="button"
+								onclick={() => editViewMode = 'edit'}
+								class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors {editViewMode === 'edit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}"
+							>
+								<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+								編集
+							</button>
+							<button
+								type="button"
+								onclick={() => editViewMode = 'split'}
+								class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors {editViewMode === 'split' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}"
+							>
+								<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+								分割
+							</button>
+							<button
+								type="button"
+								onclick={() => editViewMode = 'preview'}
+								class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors {editViewMode === 'preview' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}"
+							>
+								<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+								プレビュー
+							</button>
+						</div>
+
+						<!-- 編集のみ表示 -->
+						{#if editViewMode === 'edit'}
+							<textarea
+								bind:value={editDescription}
+								rows="25"
+								placeholder="内容を入力...&#10;&#10;URLを単独行に入力するとカード表示されます。&#10;例: https://youtube.com/watch?v=xxx"
+								class="w-full h-[600px] px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none text-slate-700 text-base leading-relaxed font-mono"
+							></textarea>
+
+						<!-- 分割表示 -->
+						{:else if editViewMode === 'split'}
+							<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+								<!-- 左: 編集エリア -->
+								<div>
+									<div class="flex items-center gap-2 mb-2">
+										<span class="text-sm font-medium text-slate-600">📝 編集</span>
+									</div>
+									<textarea
+										bind:value={editDescription}
+										rows="20"
+										placeholder="内容を入力...&#10;&#10;URLを単独行に入力するとカード表示されます。&#10;例: https://youtube.com/watch?v=xxx"
+										class="w-full h-[500px] px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none text-slate-700 text-base leading-relaxed font-mono"
+									></textarea>
 								</div>
-								<textarea
-									bind:value={editDescription}
-									rows="20"
-									placeholder="内容を入力...&#10;&#10;URLを単独行に入力するとカード表示されます。&#10;例: https://youtube.com/watch?v=xxx"
-									class="w-full h-[500px] px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none text-slate-700 text-base leading-relaxed font-mono"
-								></textarea>
-							</div>
-							<!-- 右: プレビュー -->
-							<div>
-								<div class="flex items-center gap-2 mb-2">
-									<span class="text-sm font-medium text-slate-600">👁 プレビュー</span>
-								</div>
-								<div class="border border-slate-200 rounded-xl p-4 bg-slate-50 h-[500px] overflow-auto">
-									{#if previewBlocks.length > 0}
-										<div class="space-y-3">
-											{#each previewBlocks as block}
-												{#if block.type === 'text'}
-													<div class="prose prose-slate max-w-none">
-														{@html block.html}
-													</div>
-												{:else if block.type === 'url'}
-													{#if block.isYoutube && block.youtubeId}
-														<div class="rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black">
-															<iframe width="100%" height="200" src="https://www.youtube.com/embed/{block.youtubeId}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
-															<a href={block.url} target="_blank" rel="noopener noreferrer" class="block px-4 py-2 bg-slate-900 hover:bg-slate-800 transition-colors">
-																<div class="flex items-center gap-2">
-																	<span class="text-sm">🎬</span>
-																	<span class="text-xs text-slate-300 truncate flex-1">{block.domain}</span>
-																	<svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<!-- 右: プレビュー -->
+								<div>
+									<div class="flex items-center gap-2 mb-2">
+										<span class="text-sm font-medium text-slate-600">👁 プレビュー</span>
+									</div>
+									<div class="border border-slate-200 rounded-xl p-4 bg-slate-50 h-[500px] overflow-auto">
+										{#if previewBlocks.length > 0}
+											<div class="space-y-3">
+												{#each previewBlocks as block}
+													{#if block.type === 'text'}
+														<div class="prose prose-slate max-w-none">
+															{@html block.html}
+														</div>
+													{:else if block.type === 'url'}
+														{#if block.isYoutube && block.youtubeId}
+															<div class="rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black">
+																<iframe width="100%" height="200" src="https://www.youtube.com/embed/{block.youtubeId}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+																<a href={block.url} target="_blank" rel="noopener noreferrer" class="block px-4 py-2 bg-slate-900 hover:bg-slate-800 transition-colors">
+																	<div class="flex items-center gap-2">
+																		<span class="text-sm">🎬</span>
+																		<span class="text-xs text-slate-300 truncate flex-1">{block.domain}</span>
+																		<svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																			<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+																		</svg>
+																	</div>
+																</a>
+															</div>
+														{:else}
+															<a href={block.url} target="_blank" rel="noopener noreferrer" class="block rounded-xl border border-slate-200 bg-white hover:shadow-md hover:border-blue-300 transition-all group">
+																<div class="p-4 flex items-center gap-3">
+																	<div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-2xl shrink-0">{getDomainIcon(block.domain)}</div>
+																	<div class="flex-1 min-w-0">
+																		<p class="text-base font-medium text-slate-900 truncate">{block.domain}</p>
+																		<p class="text-sm text-slate-400 truncate">{block.url.replace(/^https?:\/\//, '').slice(0, 60)}...</p>
+																	</div>
+																	<svg class="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 																		<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 																	</svg>
 																</div>
 															</a>
-														</div>
-													{:else}
-														<a href={block.url} target="_blank" rel="noopener noreferrer" class="block rounded-xl border border-slate-200 bg-white hover:shadow-md hover:border-blue-300 transition-all group">
-															<div class="p-4 flex items-center gap-3">
-																<div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-2xl shrink-0">{getDomainIcon(block.domain)}</div>
-																<div class="flex-1 min-w-0">
-																	<p class="text-base font-medium text-slate-900 truncate">{block.domain}</p>
-																	<p class="text-sm text-slate-400 truncate">{block.url.replace(/^https?:\/\//, '').slice(0, 60)}...</p>
-																</div>
-																<svg class="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+														{/if}
+													{/if}
+												{/each}
+											</div>
+										{:else}
+											<p class="text-slate-400 italic text-center py-12">プレビューがここに表示されます</p>
+										{/if}
+									</div>
+								</div>
+							</div>
+
+						<!-- プレビューのみ表示 -->
+						{:else}
+							<div class="border border-slate-200 rounded-xl p-6 bg-slate-50 min-h-[600px] overflow-auto">
+								{#if previewBlocks.length > 0}
+									<div class="space-y-4">
+										{#each previewBlocks as block}
+											{#if block.type === 'text'}
+												<div class="prose prose-slate max-w-none">
+													{@html block.html}
+												</div>
+											{:else if block.type === 'url'}
+												{#if block.isYoutube && block.youtubeId}
+													<div class="rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black max-w-2xl">
+														<iframe width="100%" height="360" src="https://www.youtube.com/embed/{block.youtubeId}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+														<a href={block.url} target="_blank" rel="noopener noreferrer" class="block px-4 py-2 bg-slate-900 hover:bg-slate-800 transition-colors">
+															<div class="flex items-center gap-2">
+																<span class="text-sm">🎬</span>
+																<span class="text-xs text-slate-300 truncate flex-1">{block.domain}</span>
+																<svg class="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 																	<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
 																</svg>
 															</div>
 														</a>
-													{/if}
+													</div>
+												{:else}
+													<a href={block.url} target="_blank" rel="noopener noreferrer" class="block rounded-xl border border-slate-200 bg-white hover:shadow-md hover:border-blue-300 transition-all group max-w-xl">
+														<div class="p-4 flex items-center gap-3">
+															<div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center text-2xl shrink-0">{getDomainIcon(block.domain)}</div>
+															<div class="flex-1 min-w-0">
+																<p class="text-base font-medium text-slate-900 truncate">{block.domain}</p>
+																<p class="text-sm text-slate-400 truncate">{block.url.replace(/^https?:\/\//, '').slice(0, 60)}...</p>
+															</div>
+															<svg class="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+																<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+															</svg>
+														</div>
+													</a>
 												{/if}
-											{/each}
-										</div>
-									{:else}
-										<p class="text-slate-400 italic text-center py-12">プレビューがここに表示されます</p>
-									{/if}
-								</div>
+											{/if}
+										{/each}
+									</div>
+								{:else}
+									<p class="text-slate-400 italic text-center py-12">プレビューがここに表示されます</p>
+								{/if}
 							</div>
-						</div>
+						{/if}
 					{:else}
 						<!-- 閲覧モード: テキストとURLが交互に表示 -->
 						{@const viewBlocks = parseContentBlocks(data.review.description || '')}

@@ -80,10 +80,10 @@
 <AppLayout user={data.user}>
 	<div class="px-4 sm:px-0">
 		<div class="flex items-center justify-between mb-6">
-			<h1 class="text-2xl font-bold text-gray-900">プロジェクト一覧</h1>
+			<h1 class="text-2xl font-bold text-rose-900">プロジェクト一覧</h1>
 			<a
 				href="/goals/new"
-				class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+				class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-rose-600 hover:bg-rose-700"
 			>
 				新規作成
 			</a>
@@ -166,127 +166,100 @@
 			</form>
 		</div>
 
-		<!-- Goal List Table -->
-		<div class="bg-white shadow rounded-lg overflow-hidden">
-			<table class="min-w-full divide-y divide-gray-200">
-				<thead class="bg-gray-50">
-					<tr>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-							タイトル
-						</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-							タグ
-						</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-							ステータス
-						</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-							進捗
-						</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-							作成者
-						</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-							期限
-						</th>
-						<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-							共有
-						</th>
-					</tr>
-				</thead>
-				<tbody class="bg-white divide-y divide-gray-200">
+		<!-- Goal List (カード形式) -->
+		<div class="bg-white shadow rounded-xl overflow-hidden border border-rose-200">
+			<div class="px-4 sm:px-6 py-3 border-b border-rose-100 flex items-center justify-between bg-rose-50">
+				<h2 class="font-semibold text-rose-700 text-sm flex items-center gap-2">
+					🎯 プロジェクト
+					<span class="text-xs font-normal text-rose-500">{data.goals.length}件</span>
+				</h2>
+			</div>
+			{#if data.goals.length > 0}
+				<div class="p-2 sm:p-3 space-y-2">
 					{#each data.goals as goal}
-						<tr class="hover:bg-gray-50">
-							<td class="px-6 py-4">
-								<a href="/goals/{goal.id}" class="text-blue-600 hover:underline font-medium flex items-center gap-2">
-									<span class="w-3 h-3 rounded-full shrink-0" style="background-color: {goal.color}"></span>
+						<div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-rose-50/50 hover:bg-rose-100/50 transition-colors">
+							<!-- カラーアイコン -->
+							<div class="shrink-0">
+								<span class="w-5 h-5 rounded-full block" style="background-color: {goal.color}"></span>
+							</div>
+							<!-- タイトル・情報 -->
+							<div class="flex-1 min-w-0">
+								<a href="/goals/{goal.id}" class="block text-sm font-medium text-rose-600 hover:text-rose-800 hover:underline truncate">
 									{goal.title}
 								</a>
-							</td>
-							<td class="px-6 py-4">
-								<div class="flex flex-wrap gap-1.5">
-									<span class="px-2 py-1 text-xs rounded-full {priorityColors[goal.priority]}">
-										{priorityLabels[goal.priority]}
+								<div class="flex items-center gap-2 mt-1 flex-wrap">
+									<span class="px-2 py-0.5 text-xs rounded-full {statusColors[goal.status]}">
+										{statusLabels[goal.status]}
 									</span>
+									<span class="px-2 py-0.5 text-xs rounded-full {priorityColors[goal.priority]}">
+										優先度: {priorityLabels[goal.priority]}
+									</span>
+									<span class="text-xs text-slate-400">{goal.creator_name}</span>
+									<span class="text-xs {goal.status !== 'completed' && isOverdue(goal.due_date) ? 'text-red-600 font-medium' : 'text-slate-400'}">
+										{formatDate(goal.due_date)}
+									</span>
+									{#if goal.total_reviews > 0}
+										<span class="text-xs text-slate-400">
+											進捗: {goal.completed_reviews}/{goal.total_reviews}
+										</span>
+									{/if}
 								</div>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<span class="px-2 py-1 text-xs rounded-full {statusColors[goal.status]}">
-									{statusLabels[goal.status]}
-								</span>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-								{goal.completed_reviews}/{goal.total_reviews}
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-								{goal.creator_name}
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-								<span class:text-red-600={goal.status !== 'completed' && isOverdue(goal.due_date)}>
-									{formatDate(goal.due_date)}
-								</span>
-							</td>
-							<td class="px-6 py-4 whitespace-nowrap">
-								<div class="flex gap-2">
-									<button
-										type="button"
-										onclick={() => copyLink(goal.id)}
-										class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors {copiedId === goal.id ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}"
-										title="リンクをコピー"
-									>
-										{#if copiedId === goal.id}
-											<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-											</svg>
-										{:else}
-											<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-											</svg>
-										{/if}
-										共有
-									</button>
-									<a
-										href="/goals/{goal.id}"
-										class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors bg-orange-50 text-orange-600 hover:bg-orange-100"
-										title="開く"
-									>
-										<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+							</div>
+							<!-- アクションボタン -->
+							<div class="flex items-center gap-1.5 shrink-0">
+								<a
+									href="/goals/{goal.id}"
+									class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+									title="開く"
+								>
+									<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+									</svg>
+								</a>
+								<button
+									type="button"
+									onclick={() => copyLink(goal.id)}
+									class="p-1.5 rounded-lg transition-colors {copiedId === goal.id ? 'bg-green-100 text-green-700' : 'text-slate-400 hover:text-rose-600 hover:bg-rose-50'}"
+									title="リンクをコピー"
+								>
+									{#if copiedId === goal.id}
+										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
 										</svg>
-										開く
-									</a>
-									<button
-										type="button"
-										onclick={() => deleteGoal(goal.id, goal.title)}
-										disabled={deletingId === goal.id}
-										class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors bg-red-50 text-red-600 hover:bg-red-100"
-										title="削除"
-									>
-										{#if deletingId === goal.id}
-											<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-											</svg>
-										{:else}
-											<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-											</svg>
-										{/if}
-										削除
-									</button>
-								</div>
-							</td>
-						</tr>
-					{:else}
-						<tr>
-							<td colspan="7" class="px-6 py-8 text-center text-gray-500">
-								プロジェクトが見つかりません
-							</td>
-						</tr>
+									{:else}
+										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+										</svg>
+									{/if}
+								</button>
+								<button
+									type="button"
+									onclick={() => deleteGoal(goal.id, goal.title)}
+									disabled={deletingId === goal.id}
+									class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+									title="削除"
+								>
+									{#if deletingId === goal.id}
+										<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+											<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+											<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+										</svg>
+									{:else}
+										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+										</svg>
+									{/if}
+								</button>
+							</div>
+						</div>
 					{/each}
-				</tbody>
-			</table>
+				</div>
+			{:else}
+				<div class="px-6 py-8 text-center text-gray-500">
+					プロジェクトが見つかりません
+				</div>
+			{/if}
 		</div>
 	</div>
 </AppLayout>

@@ -20,29 +20,12 @@
 		{ href: '/goals', label: 'プロジェクト', icon: '🎯' },
 		{ href: '/reviews', label: 'ドキュメント', icon: '📋' },
 		{ href: '/calendar', label: 'カレンダー', icon: '📅' },
+		{ href: '/links', label: 'システムリンク', icon: '🔗' },
 	];
 
 	const adminItems = [
 		{ href: '/members', label: 'メンバー管理', icon: '👥' },
 		{ href: '/settings', label: '設定', icon: '⚙️' },
-	];
-
-	// 外部システムリンク
-	const systemLinks = [
-		{
-			href: 'https://webthqui.pages.dev',
-			label: 'ストレスチェック',
-			description: '分析システム',
-			icon: '📊',
-			color: 'from-emerald-500 to-teal-600'
-		},
-		{
-			href: 'https://sougoushinrimake.pages.dev',
-			label: 'MAツール',
-			description: 'LP/ブログ/PR作成',
-			icon: '🚀',
-			color: 'from-purple-500 to-indigo-600'
-		},
 	];
 </script>
 
@@ -93,33 +76,6 @@
 				</div>
 			{/if}
 
-			<!-- システムリンク -->
-			<div class="pt-4 mt-4 border-t border-slate-200">
-				<p class="px-4 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">システム</p>
-				<div class="space-y-2 px-2">
-					{#each systemLinks as link}
-						<a
-							href={link.href}
-							target="_blank"
-							rel="noopener noreferrer"
-							class="block p-3 rounded-xl border border-slate-200 hover:border-slate-300 hover:shadow-md transition-all group bg-white"
-						>
-							<div class="flex items-center gap-3">
-								<div class="w-10 h-10 bg-gradient-to-br {link.color} rounded-lg flex items-center justify-center text-xl shadow-sm">
-									{link.icon}
-								</div>
-								<div class="flex-1 min-w-0">
-									<p class="text-sm font-medium text-slate-900 group-hover:text-blue-600 transition-colors">{link.label}</p>
-									<p class="text-xs text-slate-500 truncate">{link.description}</p>
-								</div>
-								<svg class="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-								</svg>
-							</div>
-						</a>
-					{/each}
-				</div>
-			</div>
 		</nav>
 
 		<!-- User info at bottom -->

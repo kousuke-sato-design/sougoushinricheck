@@ -74,8 +74,61 @@
 		return null;
 	}
 
+	// Extract all URLs from text
+	function extractUrls(text: string): { url: string; domain: string; isYoutube: boolean; youtubeId?: string }[] {
+		if (!text) return [];
+		const urlPattern = /https?:\/\/[^\s<>"{}|\\^`\[\]]+/g;
+		const matches = text.match(urlPattern) || [];
+		const seen = new Set<string>();
+		return matches
+			.filter(url => {
+				if (seen.has(url)) return false;
+				seen.add(url);
+				return true;
+			})
+			.map(url => {
+				try {
+					const urlObj = new URL(url);
+					const isYoutube = urlObj.hostname.includes('youtube.com') || urlObj.hostname.includes('youtu.be');
+					return {
+						url,
+						domain: urlObj.hostname.replace('www.', ''),
+						isYoutube,
+						youtubeId: isYoutube ? extractYouTubeId(url) || undefined : undefined
+					};
+				} catch {
+					return { url, domain: url, isYoutube: false };
+				}
+			});
+	}
+
+	// Get domain icon/emoji based on common services
+	function getDomainIcon(domain: string): string {
+		if (domain.includes('youtube')) return '🎬';
+		if (domain.includes('twitter') || domain.includes('x.com')) return '𝕏';
+		if (domain.includes('instagram')) return '📸';
+		if (domain.includes('facebook')) return '👤';
+		if (domain.includes('github')) return '💻';
+		if (domain.includes('figma')) return '🎨';
+		if (domain.includes('notion')) return '📝';
+		if (domain.includes('slack')) return '💬';
+		if (domain.includes('drive.google') || domain.includes('docs.google')) return '📄';
+		if (domain.includes('sheets.google')) return '📊';
+		if (domain.includes('slides.google')) return '📽️';
+		if (domain.includes('google')) return '🔍';
+		if (domain.includes('amazon') || domain.includes('amzn')) return '📦';
+		if (domain.includes('spotify')) return '🎵';
+		if (domain.includes('netflix')) return '🎥';
+		if (domain.includes('zoom')) return '📹';
+		if (domain.includes('linkedin')) return '💼';
+		if (domain.includes('tiktok')) return '🎵';
+		if (domain.includes('pinterest')) return '📌';
+		return '🔗';
+	}
+
 	let formattedContent = $derived(renderFormattedText(data.review.description || ''));
 	let youtubeId = $derived(extractYouTubeId(data.review.description || ''));
+	let extractedUrls = $derived(extractUrls(data.review.description || ''));
 
 	// Edit mode state
 	let isEditMode = $state(data.review.status === 'draft' && !data.review.description);
@@ -224,10 +277,58 @@
 					<button type="button" onclick={insertDivider} class="px-2 py-1 text-xs text-slate-500 hover:bg-slate-100 hover:text-slate-700 rounded transition-colors">─</button>
 				</div>
 
-				<!-- YouTube Preview (if URL detected) -->
-				{#if extractYouTubeId(editDescription)}
-					<div class="mb-4 rounded-xl overflow-hidden shadow-lg max-w-2xl">
-						<iframe width="100%" height="360" src="https://www.youtube.com/embed/{extractYouTubeId(editDescription)}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+				<!-- URL Link Cards Preview (Edit Mode) -->
+				{#if extractUrls(editDescription).length > 0}
+					{@const editUrls = extractUrls(editDescription)}
+					<div class="mb-4 grid gap-3 {editUrls.length === 1 ? 'grid-cols-1 max-w-2xl' : editUrls.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}">
+						{#each editUrls as linkInfo}
+							{#if linkInfo.isYoutube && linkInfo.youtubeId}
+								<!-- YouTube Embed Card -->
+								<div class="rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black">
+									<iframe
+										width="100%"
+										height="{editUrls.length === 1 ? '360' : '200'}"
+										src="https://www.youtube.com/embed/{linkInfo.youtubeId}"
+										title="YouTube video"
+										frameborder="0"
+										allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+										allowfullscreen
+									></iframe>
+									<a href={linkInfo.url} target="_blank" rel="noopener noreferrer" class="block px-4 py-3 bg-slate-900 hover:bg-slate-800 transition-colors">
+										<div class="flex items-center gap-2">
+											<span class="text-lg">🎬</span>
+											<span class="text-sm text-slate-300 truncate flex-1">{linkInfo.domain}</span>
+											<svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+											</svg>
+										</div>
+									</a>
+								</div>
+							{:else}
+								<!-- Regular URL Card -->
+								<a
+									href={linkInfo.url}
+									target="_blank"
+									rel="noopener noreferrer"
+									class="block rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white hover:shadow-lg hover:border-blue-300 transition-all group"
+								>
+									<div class="p-4">
+										<div class="flex items-start gap-3">
+											<div class="w-12 h-12 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
+												{getDomainIcon(linkInfo.domain)}
+											</div>
+											<div class="flex-1 min-w-0">
+												<p class="text-sm font-medium text-slate-900 mb-1 truncate">{linkInfo.domain}</p>
+												<p class="text-xs text-slate-500 truncate">{linkInfo.url}</p>
+											</div>
+											<svg class="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+											</svg>
+										</div>
+									</div>
+								</a>
+							{/if}
+						{/each}
 					</div>
 				{/if}
 
@@ -293,11 +394,60 @@
 
 				<!-- Content -->
 				<div class="px-6 sm:px-8 py-6">
-					{#if youtubeId}
-						<div class="mb-6 rounded-xl overflow-hidden shadow-lg">
-							<iframe width="100%" height="400" src="https://www.youtube.com/embed/{youtubeId}" title="YouTube video" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+					<!-- URL Link Cards -->
+					{#if extractedUrls.length > 0}
+						<div class="mb-6 grid gap-3 {extractedUrls.length === 1 ? 'grid-cols-1' : extractedUrls.length === 2 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2'}">
+							{#each extractedUrls as linkInfo}
+								{#if linkInfo.isYoutube && linkInfo.youtubeId}
+									<!-- YouTube Embed Card -->
+									<div class="col-span-1 {extractedUrls.length === 1 ? 'sm:col-span-1' : ''} rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-black">
+										<iframe
+											width="100%"
+											height="{extractedUrls.length === 1 ? '360' : '200'}"
+											src="https://www.youtube.com/embed/{linkInfo.youtubeId}"
+											title="YouTube video"
+											frameborder="0"
+											allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+											allowfullscreen
+										></iframe>
+										<a href={linkInfo.url} target="_blank" rel="noopener noreferrer" class="block px-4 py-3 bg-slate-900 hover:bg-slate-800 transition-colors">
+											<div class="flex items-center gap-2">
+												<span class="text-lg">🎬</span>
+												<span class="text-sm text-slate-300 truncate flex-1">{linkInfo.domain}</span>
+												<svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+												</svg>
+											</div>
+										</a>
+									</div>
+								{:else}
+									<!-- Regular URL Card -->
+									<a
+										href={linkInfo.url}
+										target="_blank"
+										rel="noopener noreferrer"
+										class="block rounded-xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white hover:shadow-lg hover:border-blue-300 transition-all group"
+									>
+										<div class="p-4">
+											<div class="flex items-start gap-3">
+												<div class="w-12 h-12 bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center text-2xl shrink-0 group-hover:scale-105 transition-transform">
+													{getDomainIcon(linkInfo.domain)}
+												</div>
+												<div class="flex-1 min-w-0">
+													<p class="text-sm font-medium text-slate-900 mb-1 truncate">{linkInfo.domain}</p>
+													<p class="text-xs text-slate-500 truncate">{linkInfo.url}</p>
+												</div>
+												<svg class="w-5 h-5 text-slate-300 group-hover:text-blue-500 shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+												</svg>
+											</div>
+										</div>
+									</a>
+								{/if}
+							{/each}
 						</div>
 					{/if}
+
 					{#if data.review.description}
 						<div class="prose prose-slate max-w-none">
 							{@html formattedContent}

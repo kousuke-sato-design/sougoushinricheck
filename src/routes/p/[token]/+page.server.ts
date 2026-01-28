@@ -24,15 +24,35 @@ export const load: PageServerLoad = async ({ params }) => {
 	const commentsResult = await db.execute(
 		`SELECT c.*, u.name as user_name
 		 FROM comments c
-		 JOIN users u ON c.user_id = u.id
+		 LEFT JOIN users u ON c.user_id = u.id
 		 WHERE c.review_id = :reviewId
 		 ORDER BY c.created_at ASC`,
 		{ reviewId: review.id }
 	);
 
+	// Get list of people who approved
+	const approversResult = await db.execute(
+		`SELECT guest_name, created_at FROM comments
+		 WHERE review_id = :reviewId AND action_type = 'approved'
+		 ORDER BY created_at ASC`,
+		{ reviewId: review.id }
+	);
+
+	// Get related goals
+	const goalsResult = await db.execute(
+		`SELECT g.id, g.title, g.status, g.color, g.due_date
+		 FROM review_goals rg
+		 JOIN goals g ON rg.goal_id = g.id
+		 WHERE rg.review_id = :reviewId
+		 ORDER BY g.created_at DESC`,
+		{ reviewId: review.id }
+	);
+
 	return {
 		review,
-		comments: commentsResult.rows
+		comments: commentsResult.rows,
+		approvers: approversResult.rows,
+		goals: goalsResult.rows
 	};
 };
 
@@ -61,19 +81,20 @@ export const actions: Actions = {
 
 		const review = reviewResult.rows[0];
 
+		// Don't change status to approved - allow multiple confirmations
 		await db.execute(
-			`UPDATE reviews SET status = 'approved', updated_at = datetime('now') WHERE id = :reviewId`,
+			`UPDATE reviews SET updated_at = datetime('now') WHERE id = :reviewId`,
 			{ reviewId: review.id }
 		);
 
 		await db.execute(
-			`INSERT INTO comments (id, review_id, user_id, content)
-			 VALUES (:id, :reviewId, :userId, :content)`,
+			`INSERT INTO comments (id, review_id, user_id, guest_name, action_type, content)
+			 VALUES (:id, :reviewId, NULL, :guestName, 'approved', :content)`,
 			{
 				id: nanoid(),
 				reviewId: review.id,
-				userId: review.requester_id,
-				content: `【${guestName}】が確認OKしました`
+				guestName: guestName.trim(),
+				content: '確認OKしました'
 			}
 		);
 
@@ -83,17 +104,25 @@ export const actions: Actions = {
 				review.requester_email as string,
 				`[確認OK] ${review.title}`,
 				`${guestName}さんが「${review.title}」を確認OKしました。`,
-				`<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-					<div style="background: #10b981; padding: 20px; border-radius: 12px 12px 0 0;">
-						<h1 style="color: white; margin: 0; font-size: 20px;">確認OK</h1>
-					</div>
-					<div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
-						<p><strong>${guestName}</strong>さんが以下を確認OKしました。</p>
-						<div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
-							<p style="margin: 0; font-weight: bold;">${review.title}</p>
-						</div>
-					</div>
-				</div>`
+				`<table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; margin: 0 auto; font-family: sans-serif;">
+					<tr>
+						<td bgcolor="#10b981" style="background-color: #10b981; padding: 20px; border-radius: 12px 12px 0 0;">
+							<h1 style="color: white; margin: 0; font-size: 20px;">確認OK</h1>
+						</td>
+					</tr>
+					<tr>
+						<td bgcolor="#f8fafc" style="background-color: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+							<p><strong>${guestName}</strong>さんが以下を確認OKしました。</p>
+							<table width="100%" cellpadding="0" cellspacing="0" border="0">
+								<tr>
+									<td bgcolor="#ffffff" style="background-color: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+										<p style="margin: 0; font-weight: bold;">${review.title}</p>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>`
 			);
 		}
 
@@ -132,16 +161,14 @@ export const actions: Actions = {
 			{ reviewId: review.id }
 		);
 
-		const commentContent = `【${guestName}】からのコメント:\n${reason}`;
-
 		await db.execute(
-			`INSERT INTO comments (id, review_id, user_id, content)
-			 VALUES (:id, :reviewId, :userId, :content)`,
+			`INSERT INTO comments (id, review_id, user_id, guest_name, action_type, content)
+			 VALUES (:id, :reviewId, NULL, :guestName, 'comment', :content)`,
 			{
 				id: nanoid(),
 				reviewId: review.id,
-				userId: review.requester_id,
-				content: commentContent
+				guestName: guestName,
+				content: reason.trim()
 			}
 		);
 
@@ -153,18 +180,26 @@ export const actions: Actions = {
 					review.requester_email as string,
 					`[コメント] ${review.title}`,
 					`${guestName}さんが「${review.title}」にコメントしました。\n\nコメント: ${reason}`,
-					`<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-						<div style="background: #ef4444; padding: 20px; border-radius: 12px 12px 0 0;">
-							<h1 style="color: white; margin: 0; font-size: 20px;">コメントがあります</h1>
-						</div>
-						<div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
-							<p><strong>${guestName}</strong>さんがコメントしました。</p>
-							<div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
-								<p style="margin: 0; font-weight: bold;">${review.title}</p>
-								<p style="margin: 8px 0 0; color: #64748b;">${reason}</p>
-							</div>
-						</div>
-					</div>`
+					`<table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; margin: 0 auto; font-family: sans-serif;">
+						<tr>
+							<td bgcolor="#ef4444" style="background-color: #ef4444; padding: 20px; border-radius: 12px 12px 0 0;">
+								<h1 style="color: white; margin: 0; font-size: 20px;">コメントがあります</h1>
+							</td>
+						</tr>
+						<tr>
+							<td bgcolor="#f8fafc" style="background-color: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+								<p><strong>${guestName}</strong>さんがコメントしました。</p>
+								<table width="100%" cellpadding="0" cellspacing="0" border="0">
+									<tr>
+										<td bgcolor="#ffffff" style="background-color: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+											<p style="margin: 0; font-weight: bold;">${review.title}</p>
+											<p style="margin: 8px 0 0; color: #64748b;">${reason}</p>
+										</td>
+									</tr>
+								</table>
+							</td>
+						</tr>
+					</table>`
 				);
 			}
 		}
@@ -205,13 +240,13 @@ export const actions: Actions = {
 
 		// Add a comment for the update
 		await db.execute(
-			`INSERT INTO comments (id, review_id, user_id, content)
-			 VALUES (:id, :reviewId, :userId, :content)`,
+			`INSERT INTO comments (id, review_id, user_id, guest_name, action_type, content)
+			 VALUES (:id, :reviewId, :userId, NULL, 'resubmitted', :content)`,
 			{
 				id: nanoid(),
 				reviewId: review.id,
 				userId: review.requester_id,
-				content: `ドキュメントが修正され、再依頼されました`
+				content: 'ドキュメントを修正して再依頼しました'
 			}
 		);
 
@@ -222,17 +257,25 @@ export const actions: Actions = {
 				review.requester_email as string,
 				`[再依頼] ${title}`,
 				`ドキュメント「${title}」が修正され、再依頼されました。`,
-				`<div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-					<div style="background: #3b82f6; padding: 20px; border-radius: 12px 12px 0 0;">
-						<h1 style="color: white; margin: 0; font-size: 20px;">再依頼</h1>
-					</div>
-					<div style="background: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
-						<p>ドキュメントが修正され、再度確認依頼が送信されました。</p>
-						<div style="background: white; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0; margin: 16px 0;">
-							<p style="margin: 0; font-weight: bold;">${title}</p>
-						</div>
-					</div>
-				</div>`
+				`<table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; margin: 0 auto; font-family: sans-serif;">
+					<tr>
+						<td bgcolor="#3b82f6" style="background-color: #3b82f6; padding: 20px; border-radius: 12px 12px 0 0;">
+							<h1 style="color: white; margin: 0; font-size: 20px;">再依頼</h1>
+						</td>
+					</tr>
+					<tr>
+						<td bgcolor="#f8fafc" style="background-color: #f8fafc; padding: 20px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 12px 12px;">
+							<p>ドキュメントが修正され、再度確認依頼が送信されました。</p>
+							<table width="100%" cellpadding="0" cellspacing="0" border="0">
+								<tr>
+									<td bgcolor="#ffffff" style="background-color: #ffffff; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+										<p style="margin: 0; font-weight: bold;">${title}</p>
+									</td>
+								</tr>
+							</table>
+						</td>
+					</tr>
+				</table>`
 			);
 		}
 

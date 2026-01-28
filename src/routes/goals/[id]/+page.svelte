@@ -7,6 +7,7 @@
 	import { invalidateAll } from '$app/navigation';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
+	let isAuthenticated = $derived(data.isAuthenticated);
 
 	const flipDurationMs = 200;
 
@@ -278,14 +279,38 @@
 	const checkStatusLabels: Record<string, string> = { draft: '下書き', pending: '未確認', shared: '確認待ち', in_review: '確認中', approved: '確認済', rejected: '差し戻し' };
 </script>
 
+{#if isAuthenticated}
 <AppLayout user={data.user}>
+{@render pageContent()}
+</AppLayout>
+{:else}
+<div class="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+	<header class="bg-white border-b border-slate-200">
+		<div class="max-w-7xl mx-auto px-4 sm:px-6 py-3">
+			<div class="flex items-center gap-3">
+				<div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center">
+					<svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>
+				</div>
+				<span class="text-sm font-medium text-slate-600">プロジェクト詳細</span>
+			</div>
+		</div>
+	</header>
+	<div class="py-6">
+		{@render pageContent()}
+	</div>
+</div>
+{/if}
+
+{#snippet pageContent()}
 	<div class="max-w-7xl mx-auto px-4 sm:px-6">
 		<!-- Header -->
 		<div class="mb-4 sm:mb-6">
-			<a href="/goals" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-2">
-				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
-				プロジェクト一覧
-			</a>
+			{#if isAuthenticated}
+				<a href="/goals" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700 mb-2">
+					<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+					プロジェクト一覧
+				</a>
+			{/if}
 			<div class="flex items-start justify-between gap-2 sm:gap-4">
 				<div class="flex-1 min-w-0">
 					<div class="flex items-center gap-2 sm:gap-3 mb-1 sm:mb-2 flex-wrap">
@@ -306,9 +331,11 @@
 						{/if}
 					</div>
 				</div>
-				<button type="button" onclick={() => showEditProject = true} class="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg shrink-0">
-					<svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-				</button>
+				{#if isAuthenticated}
+					<button type="button" onclick={() => showEditProject = true} class="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg shrink-0">
+						<svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+					</button>
+				{/if}
 			</div>
 		</div>
 
@@ -347,6 +374,7 @@
 				</div>
 				<div class="p-2 sm:p-3">
 					<!-- Add objective -->
+					{#if isAuthenticated}
 					<form method="POST" action="?/addObjective" use:enhance={() => { return async ({ update }) => { newObjective = ''; newObjectiveDate = ''; newObjectiveColor = '#3b82f6'; await update(); }; }} class="mb-2">
 						<div class="flex gap-2 items-center">
 							<div class="flex gap-0.5 shrink-0">
@@ -363,11 +391,13 @@
 							<button type="submit" disabled={!newObjective.trim()} class="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 shrink-0">追加</button>
 						</div>
 					</form>
+					{/if}
 					{#if data.goal.objectives && data.goal.objectives.length > 0}
 						<div class="space-y-2">
 							{#each data.goal.objectives as objective}
 								<div class="flex items-center gap-3 px-4 py-4 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors border-l-4" style="border-left-color: {objective.color}">
 									<!-- チェックボックス -->
+									{#if isAuthenticated}
 									<form method="POST" action="?/toggleObjective" use:enhance>
 										<input type="hidden" name="objective_id" value={objective.id} />
 										<input type="hidden" name="is_completed" value={objective.is_completed} />
@@ -377,14 +407,26 @@
 											{/if}
 										</button>
 									</form>
+									{:else}
+									<div class="w-7 h-7 rounded-full border-2 flex items-center justify-center shrink-0" style="border-color: {objective.color}; {objective.is_completed ? `background-color: ${objective.color}` : ''}">
+										{#if objective.is_completed}
+											<svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+										{/if}
+									</div>
+									{/if}
 									<!-- タイトル・期限 -->
 									<div class="flex-1 min-w-0">
-										<button type="button" class="block w-full text-left text-base font-medium {objective.is_completed ? 'text-slate-400 line-through' : 'text-slate-800'}" onclick={() => { editingObjective = objective; showObjectiveModal = true; }}>{objective.title}</button>
+										{#if isAuthenticated}
+											<button type="button" class="block w-full text-left text-base font-medium {objective.is_completed ? 'text-slate-400 line-through' : 'text-slate-800'}" onclick={() => { editingObjective = objective; showObjectiveModal = true; }}>{objective.title}</button>
+										{:else}
+											<span class="block text-base font-medium {objective.is_completed ? 'text-slate-400 line-through' : 'text-slate-800'}">{objective.title}</span>
+										{/if}
 										{#if objective.due_date}
 											<span class="text-sm mt-1 block" style="color: {objective.color}">{formatDate(objective.due_date)}</span>
 										{/if}
 									</div>
 									<!-- アクションボタン -->
+									{#if isAuthenticated}
 									<div class="flex items-center gap-2 shrink-0">
 										<!-- チェック作成ボタン -->
 										<button type="button" onclick={() => { selectedObjectiveForCheck = objective; showCreateCheckFromObjectiveModal = true; newCheckFromObjectiveTitle = `${objective.title}のチェック`; }} class="flex items-center gap-1.5 px-3 py-2 text-sm text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all" title="チェック作成">
@@ -397,26 +439,29 @@
 											<span class="hidden sm:inline">編集</span>
 										</button>
 									</div>
+									{/if}
 								</div>
 							{/each}
 						</div>
 					{:else}
-						<p class="text-center py-3 text-sm text-slate-400">目標を追加してください</p>
+						<p class="text-center py-3 text-sm text-slate-400">{isAuthenticated ? '目標を追加してください' : '目標はありません'}</p>
 					{/if}
 				</div>
 			</div>
 			{/if}
 
-			<!-- Row 2: チェック (横長・全幅・/reviews と同じテーブル形式) -->
+			<!-- Row 2: ドキュメント一覧 (カード形式) -->
 			{#if !expandedTile || expandedTile === 'checks'}
 			<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden {expandedTile === 'checks' ? 'ring-2 ring-blue-500' : ''}">
-				<div class="px-6 py-3 border-b border-slate-100 flex items-center justify-between">
-					<h2 class="font-semibold text-slate-900 flex items-center gap-2">
-						ドキュメント一覧
+				<div class="px-4 sm:px-6 py-3 border-b border-slate-100 flex items-center justify-between">
+					<h2 class="font-semibold text-slate-900 text-sm sm:text-base flex items-center gap-2">
+						📋 ドキュメント一覧
 						<span class="text-xs font-normal text-slate-500">{data.goal.reviews.length}</span>
 					</h2>
 					<div class="flex items-center gap-2">
-						<button type="button" onclick={() => showCreateCheckModal = true} class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700">新規作成</button>
+						{#if isAuthenticated}
+							<button type="button" onclick={() => showCreateCheckModal = true} class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700">+ 新規作成</button>
+						{/if}
 						<button type="button" onclick={() => toggleExpand('checks')} class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600" title={expandedTile === 'checks' ? '縮小' : '拡大'}>
 							{#if expandedTile === 'checks'}
 								<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -427,115 +472,106 @@
 					</div>
 				</div>
 				{#if data.goal.reviews.length > 0}
-					<table class="min-w-full divide-y divide-gray-200">
-						<thead class="bg-gray-50">
-							<tr>
-								<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">タイトル</th>
-								<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">タグ</th>
-								<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ステータス</th>
-								<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">進捗</th>
-								<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">依頼者</th>
-								<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">期限</th>
-								<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">共有</th>
-							</tr>
-						</thead>
-						<tbody class="bg-white divide-y divide-gray-200">
-							{#each data.goal.reviews as review}
-								<tr class="hover:bg-gray-50">
-									<td class="px-6 py-4">
-										<a href="/reviews/{review.id}" class="text-blue-600 hover:underline font-medium flex items-center gap-2">
-											<span class="text-lg">{review.emoji || '📄'}</span>
-											{review.title}
+					<div class="p-2 sm:p-3 space-y-2">
+						{#each data.goal.reviews as review}
+							<div class="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors">
+								<!-- 絵文字アイコン -->
+								<span class="text-xl shrink-0">{review.emoji || '📄'}</span>
+								<!-- タイトル・情報 -->
+								<div class="flex-1 min-w-0">
+									<a href={isAuthenticated ? `/reviews/${review.id}` : (review.public_token ? `/p/${review.public_token}` : '#')} class="block text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate">
+										{review.title}
+									</a>
+									<div class="flex items-center gap-2 mt-1 flex-wrap">
+										{#if review.objective_id}
+											<span class="px-2 py-0.5 text-xs font-bold rounded-full" style="background-color: {review.objective_color}; color: white">
+												{review.objective_title}
+											</span>
+										{/if}
+										<span class="px-2 py-0.5 text-xs rounded-full {checkStatusColors[review.status] || checkStatusColors.draft}">{checkStatusLabels[review.status] || '下書き'}</span>
+										<span class="text-xs text-slate-400">{review.requester_name || ''}</span>
+										{#if review.due_date}
+											<span class="text-xs text-slate-400">{formatDate(review.due_date)}</span>
+										{/if}
+									</div>
+								</div>
+								<!-- アクションボタン -->
+								{#if isAuthenticated}
+								<div class="flex items-center gap-1.5 shrink-0">
+									{#if review.status !== 'approved'}
+										<a
+											href="/reviews/{review.id}"
+											class="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-200 transition-colors"
+											title="編集"
+										>
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+											</svg>
 										</a>
-									</td>
-									<td class="px-6 py-4">
-										<div class="flex flex-wrap gap-1.5">
-											{#if review.objective_id}
-												<span class="px-2.5 py-1 text-xs font-bold rounded-full shadow-sm" style="background-color: {review.objective_color}; color: white">
-													{review.objective_title}
-												</span>
-											{:else}
-												<span class="text-xs text-gray-400">-</span>
-											{/if}
-										</div>
-									</td>
-									<td class="px-6 py-4 whitespace-nowrap">
-										<div class="flex flex-wrap gap-1.5">
-											<span class="px-2 py-1 text-xs rounded-full {checkStatusColors[review.status] || checkStatusColors.draft}">{checkStatusLabels[review.status] || '下書き'}</span>
-										</div>
-									</td>
-									<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-										0/0
-									</td>
-									<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-										{review.requester_name || '-'}
-									</td>
-									<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-										{review.due_date ? formatDate(review.due_date) : '-'}
-									</td>
-									<td class="px-6 py-4 whitespace-nowrap">
-										<div class="flex gap-2">
-											<button
-												type="button"
-												onclick={() => generateShareUrl(review.id)}
-												disabled={loadingId === review.id}
-												class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors {copiedId === review.id ? 'bg-green-100 text-green-700' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}"
-												title="共有リンクをコピー"
-											>
-												{#if loadingId === review.id}
-													<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-														<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-														<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-													</svg>
-												{:else if copiedId === review.id}
-													<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-													</svg>
-												{:else}
-													<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-													</svg>
-												{/if}
-												共有
-											</button>
-											<button
-												type="button"
-												onclick={() => openNotifyModal(review.id, review.title)}
-												class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors bg-orange-50 text-orange-600 hover:bg-orange-100"
-												title="確認依頼メールを送信"
-											>
-												<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-													<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-												</svg>
-												依頼
-											</button>
-											<button
-												type="button"
-												onclick={() => deleteReviewFromList(review.id, review.title)}
-												disabled={deletingId === review.id}
-												class="inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-lg transition-colors bg-red-50 text-red-600 hover:bg-red-100"
-												title="削除"
-											>
-												{#if deletingId === review.id}
-													<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24">
-														<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-														<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-													</svg>
-												{:else}
-													<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-														<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-													</svg>
-												{/if}
-												削除
-											</button>
-										</div>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
+									{:else}
+										<span class="p-1.5 text-slate-300 cursor-not-allowed" title="確認済みのため編集できません">
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+											</svg>
+										</span>
+									{/if}
+									<button
+										type="button"
+										onclick={() => generateShareUrl(review.id)}
+										disabled={loadingId === review.id}
+										class="p-1.5 rounded-lg transition-colors {copiedId === review.id ? 'bg-green-100 text-green-700' : 'text-slate-400 hover:text-blue-600 hover:bg-blue-50'}"
+										title="共有リンクをコピー"
+									>
+										{#if loadingId === review.id}
+											<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+											</svg>
+										{:else if copiedId === review.id}
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+											</svg>
+										{:else}
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+											</svg>
+										{/if}
+									</button>
+									<button
+										type="button"
+										onclick={() => openNotifyModal(review.id, review.title)}
+										class="p-1.5 rounded-lg text-slate-400 hover:text-orange-600 hover:bg-orange-50 transition-colors"
+										title="確認依頼メール"
+									>
+										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+										</svg>
+									</button>
+									<button
+										type="button"
+										onclick={() => deleteReviewFromList(review.id, review.title)}
+										disabled={deletingId === review.id}
+										class="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+										title="削除"
+									>
+										{#if deletingId === review.id}
+											<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+												<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+												<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+											</svg>
+										{:else}
+											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+											</svg>
+										{/if}
+									</button>
+								</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
 				{:else}
-					<p class="text-center py-8 text-sm text-gray-500">ドキュメントが見つかりません</p>
+					<p class="text-center py-8 text-sm text-slate-400">{isAuthenticated ? 'ドキュメントがありません' : 'ドキュメントはありません'}</p>
 				{/if}
 			</div>
 			{/if}
@@ -574,7 +610,7 @@
 							{#each calendarDays as date}
 								{@const items = getItemsForDate(date)}
 								{@const hasItems = items.tasks.length > 0 || items.objectives.length > 0}
-								<div class="{expandedTile === 'calendar' ? 'min-h-[80px] p-1' : 'aspect-square p-0.5'} text-xs {isCurrentMonth(date) ? '' : 'opacity-30'} {isToday(date) ? 'bg-blue-50 rounded' : ''} hover:bg-slate-50 transition-colors cursor-pointer border border-transparent hover:border-slate-200 rounded" onclick={() => { if (isCurrentMonth(date)) { const dateStr = date.toISOString().split('T')[0]; showAddTaskModal = true; editingTask = { due_date: dateStr }; } }}>
+								<div class="{expandedTile === 'calendar' ? 'min-h-[80px] p-1' : 'aspect-square p-0.5'} text-xs {isCurrentMonth(date) ? '' : 'opacity-30'} {isToday(date) ? 'bg-blue-50 rounded' : ''} hover:bg-slate-50 transition-colors {isAuthenticated ? 'cursor-pointer' : ''} border border-transparent hover:border-slate-200 rounded" onclick={() => { if (isAuthenticated && isCurrentMonth(date)) { const dateStr = date.toISOString().split('T')[0]; showAddTaskModal = true; editingTask = { due_date: dateStr }; } }}>
 									<div class="font-medium text-center {isToday(date) ? 'text-blue-600' : 'text-slate-700'}">{date.getDate()}</div>
 									{#if hasItems}
 										{#if expandedTile === 'calendar'}
@@ -631,7 +667,9 @@
 							<span class="text-xs font-normal text-slate-500">{taskProgress.completed}/{taskProgress.total}</span>
 						</h2>
 						<div class="flex items-center gap-2">
-							<button type="button" onclick={() => { showAddTaskModal = true; editingTask = null; }} class="text-xs text-blue-600 hover:text-blue-700 font-medium">+ 新規</button>
+							{#if isAuthenticated}
+								<button type="button" onclick={() => { showAddTaskModal = true; editingTask = null; }} class="text-xs text-blue-600 hover:text-blue-700 font-medium">+ 新規</button>
+							{/if}
 							<button type="button" onclick={() => toggleExpand('tasks')} class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600" title={expandedTile === 'tasks' ? '縮小' : '拡大'}>
 								{#if expandedTile === 'tasks'}
 									<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -649,6 +687,7 @@
 										<h3 class="font-medium text-slate-700 text-xs truncate">{taskStatusLabels[status]}</h3>
 										<span class="text-xs text-slate-500">{tasksByStatus[status as keyof typeof tasksByStatus].length}</span>
 									</div>
+									{#if isAuthenticated}
 									<div class="space-y-1 min-h-[80px]" use:dndzone={{ items: tasksByStatus[status as keyof typeof tasksByStatus], flipDurationMs, dropTargetStyle: { outline: '2px dashed #3b82f6', outlineOffset: '1px', borderRadius: '4px' }, type: 'tasks' }} onconsider={(e) => handleDndConsider(status, e)} onfinalize={(e) => handleDndFinalize(status, e)}>
 										{#each tasksByStatus[status as keyof typeof tasksByStatus] as task (task.id)}
 											<div class="bg-white rounded p-1.5 shadow-sm cursor-grab active:cursor-grabbing text-xs" animate:flip={{ duration: flipDurationMs }}>
@@ -661,6 +700,18 @@
 											</div>
 										{/each}
 									</div>
+									{:else}
+									<div class="space-y-1 min-h-[80px]">
+										{#each tasksByStatus[status as keyof typeof tasksByStatus] as task (task.id)}
+											<div class="bg-white rounded p-1.5 shadow-sm text-xs">
+												<div class="font-medium text-slate-900 line-clamp-2">{task.title}</div>
+												{#if task.due_date}
+													<div class="text-slate-500 mt-0.5 text-xs">{formatDate(task.due_date)}</div>
+												{/if}
+											</div>
+										{/each}
+									</div>
+									{/if}
 								</div>
 							{/each}
 						</div>
@@ -671,6 +722,8 @@
 		</div>
 	</div>
 
+	<!-- Modals (only when authenticated) -->
+	{#if isAuthenticated}
 	<!-- Edit Project Modal -->
 	{#if showEditProject}
 		<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" onclick={() => showEditProject = false}>
@@ -954,4 +1007,5 @@
 			</div>
 		</div>
 	{/if}
-</AppLayout>
+	{/if}
+{/snippet}

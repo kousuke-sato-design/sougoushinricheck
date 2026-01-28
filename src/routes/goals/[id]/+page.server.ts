@@ -4,10 +4,6 @@ import { db } from '$lib/server/db';
 import { nanoid } from 'nanoid';
 
 export const load: PageServerLoad = async ({ locals, params }) => {
-	if (!locals.user) {
-		throw redirect(302, '/');
-	}
-
 	const goalId = params.id;
 
 	// Get goal details
@@ -48,10 +44,13 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 		{ goalId }
 	);
 
-	// Get all users for editing
-	const allUsers = await db.execute(
-		`SELECT id, name, email FROM users WHERE is_active = 1 ORDER BY name`
-	);
+	// Get all users for editing (only when authenticated)
+	let allUsers: { rows: any[] } = { rows: [] };
+	if (locals.user) {
+		allUsers = await db.execute(
+			`SELECT id, name, email FROM users WHERE is_active = 1 ORDER BY name`
+		);
+	}
 
 	// Get tasks for this goal
 	const tasksResult = await db.execute(
@@ -106,7 +105,8 @@ export const load: PageServerLoad = async ({ locals, params }) => {
 			tasks: tasksResult.rows,
 			objectives: objectivesWithReviews
 		},
-		allUsers: allUsers.rows
+		allUsers: allUsers.rows,
+		isAuthenticated: !!locals.user
 	};
 };
 

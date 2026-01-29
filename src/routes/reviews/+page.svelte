@@ -309,8 +309,11 @@
 										</span>
 									{/if}
 									<span class="text-xs text-slate-400">{review.requester_name}</span>
+									<span class="text-xs text-slate-400" title="作成日">
+										作成: {formatDate(review.created_at)}
+									</span>
 									{#if review.due_date}
-										<span class="text-xs text-slate-400">{formatDate(review.due_date)}</span>
+										<span class="text-xs text-slate-400" title="期限">期限: {formatDate(review.due_date)}</span>
 									{/if}
 								</div>
 							</div>

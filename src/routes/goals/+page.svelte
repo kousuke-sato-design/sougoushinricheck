@@ -195,8 +195,11 @@
 										優先度: {priorityLabels[goal.priority]}
 									</span>
 									<span class="text-xs text-slate-400">{goal.creator_name}</span>
-									<span class="text-xs {goal.status !== 'completed' && isOverdue(goal.due_date) ? 'text-red-600 font-medium' : 'text-slate-400'}">
-										{formatDate(goal.due_date)}
+									<span class="text-xs text-slate-400" title="作成日">
+										作成: {formatDate(goal.created_at)}
+									</span>
+									<span class="text-xs {goal.status !== 'completed' && isOverdue(goal.due_date) ? 'text-red-600 font-medium' : 'text-slate-400'}" title="期限">
+										期限: {formatDate(goal.due_date)}
 									</span>
 									{#if goal.total_reviews > 0}
 										<span class="text-xs text-slate-400">

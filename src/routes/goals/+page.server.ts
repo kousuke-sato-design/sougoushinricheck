@@ -11,6 +11,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 	const filter = url.searchParams.get('filter') || 'all'; // all, assigned, created
 	const status = url.searchParams.get('status') || 'all';
 	const search = url.searchParams.get('search') || '';
+	const sort = url.searchParams.get('sort') || 'newest';
 
 	let query = `
 		SELECT g.*,
@@ -47,7 +48,24 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		params.search = `%${search}%`;
 	}
 
-	query += ` GROUP BY g.id ORDER BY g.due_date ASC`;
+	query += ` GROUP BY g.id`;
+
+	// Sort order
+	if (sort === 'oldest') {
+		query += ` ORDER BY g.created_at ASC`;
+	} else if (sort === 'due_date') {
+		query += ` ORDER BY g.due_date ASC`;
+	} else if (sort === 'status') {
+		query += ` ORDER BY CASE g.status
+			WHEN 'in_progress' THEN 1
+			WHEN 'pending' THEN 2
+			WHEN 'on_hold' THEN 3
+			WHEN 'completed' THEN 4
+			ELSE 5 END, g.created_at DESC`;
+	} else {
+		// newest (default)
+		query += ` ORDER BY g.created_at DESC`;
+	}
 
 	const goals = await db.execute(query, params);
 
@@ -82,6 +100,7 @@ export const load: PageServerLoad = async ({ locals, url }) => {
 		goals: goalsWithAssignees,
 		filter,
 		status,
-		search
+		search,
+		sort
 	};
 };

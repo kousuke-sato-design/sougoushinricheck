@@ -15,7 +15,6 @@
 	let showEditProject = $state(false);
 	let showAddTaskModal = $state(false);
 	let showObjectiveModal = $state(false);
-	let showCreateCheckModal = $state(false);
 	let editingTask = $state<any>(null);
 	let editingObjective = $state<any>(null);
 	let selectedColor = $state(data.goal.color);
@@ -24,10 +23,6 @@
 	let newObjective = $state('');
 	let newObjectiveDate = $state('');
 	let newObjectiveColor = $state('#3b82f6');
-	let newCheckTitle = $state('');
-	let newCheckFromObjectiveTitle = $state('');
-	let selectedObjectiveForCheck = $state<any>(null);
-	let showCreateCheckFromObjectiveModal = $state(false);
 
 	// Notify modal state (same as /reviews)
 	let showNotifyModal = $state(false);
@@ -425,20 +420,12 @@
 											<span class="text-sm mt-1 block" style="color: {objective.color}">{formatDate(objective.due_date)}</span>
 										{/if}
 									</div>
-									<!-- アクションボタン -->
+									<!-- 編集ボタン -->
 									{#if isAuthenticated}
-									<div class="flex items-center gap-2 shrink-0">
-										<!-- チェック作成ボタン -->
-										<button type="button" onclick={() => { selectedObjectiveForCheck = objective; showCreateCheckFromObjectiveModal = true; newCheckFromObjectiveTitle = `${objective.title}のチェック`; }} class="flex items-center gap-1.5 px-3 py-2 text-sm text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all" title="チェック作成">
-											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-											<span class="hidden sm:inline">チェック</span>
-										</button>
-										<!-- 編集ボタン -->
-										<button type="button" onclick={() => { editingObjective = objective; showObjectiveModal = true; }} class="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all" title="編集">
-											<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-											<span class="hidden sm:inline">編集</span>
-										</button>
-									</div>
+									<button type="button" onclick={() => { editingObjective = objective; showObjectiveModal = true; }} class="flex items-center gap-1.5 px-3 py-2 text-sm text-slate-600 hover:text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all shrink-0" title="編集">
+										<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+										<span class="hidden sm:inline">編集</span>
+									</button>
 									{/if}
 								</div>
 							{/each}
@@ -460,7 +447,7 @@
 					</h2>
 					<div class="flex items-center gap-2">
 						{#if isAuthenticated}
-							<button type="button" onclick={() => showCreateCheckModal = true} class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700">+ 新規作成</button>
+							<a href="/reviews/new?goal={data.goal.id}" class="inline-flex items-center px-3 py-1.5 text-xs font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700">+ 新規作成</a>
 						{/if}
 						<button type="button" onclick={() => toggleExpand('checks')} class="p-1 hover:bg-slate-100 rounded text-slate-400 hover:text-slate-600" title={expandedTile === 'checks' ? '縮小' : '拡大'}>
 							{#if expandedTile === 'checks'}
@@ -841,27 +828,6 @@
 		</div>
 	{/if}
 
-	<!-- Create Check Modal -->
-	{#if showCreateCheckModal}
-		<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" onclick={() => showCreateCheckModal = false}>
-			<div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-4 sm:p-6" onclick={(e) => e.stopPropagation()}>
-				<h3 class="text-lg font-bold text-slate-900 mb-4">新規チェック</h3>
-				<form method="POST" action="?/createReview" use:enhance>
-					<div class="space-y-4">
-						<div>
-							<label for="check_title" class="block text-sm font-medium text-slate-700 mb-1">タイトル</label>
-							<input type="text" id="check_title" name="title" bind:value={newCheckTitle} required class="w-full px-3 py-2 border border-slate-300 rounded-lg" placeholder="チェックタイトル" />
-						</div>
-					</div>
-					<div class="flex justify-end gap-3 mt-6">
-						<button type="button" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg" onclick={() => showCreateCheckModal = false}>キャンセル</button>
-						<button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">作成</button>
-					</div>
-				</form>
-			</div>
-		</div>
-	{/if}
-
 	<!-- Objective Edit Modal -->
 	{#if showObjectiveModal && editingObjective}
 		<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" onclick={() => showObjectiveModal = false}>
@@ -896,31 +862,6 @@
 				<form method="POST" action="?/deleteObjective" use:enhance={() => { return async ({ update }) => { showObjectiveModal = false; editingObjective = null; await update(); }; }} class="mt-4 pt-4 border-t">
 					<input type="hidden" name="objective_id" value={editingObjective.id} />
 					<button type="submit" class="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg border border-red-200" onclick={(e) => { if (!confirm('この目標を削除しますか？')) e.preventDefault(); }}>目標を削除</button>
-				</form>
-			</div>
-		</div>
-	{/if}
-
-	<!-- Create Check from Objective Modal -->
-	{#if showCreateCheckFromObjectiveModal && selectedObjectiveForCheck}
-		<div class="fixed inset-0 bg-slate-900/50 z-50 flex items-center justify-center p-4" onclick={() => showCreateCheckFromObjectiveModal = false}>
-			<div class="bg-white rounded-2xl shadow-xl max-w-md w-full p-4 sm:p-6" onclick={(e) => e.stopPropagation()}>
-				<h3 class="text-lg font-bold text-slate-900 mb-2">チェックを作成</h3>
-				<p class="text-sm text-slate-500 mb-4">
-					目標「<span class="font-medium" style="color: {selectedObjectiveForCheck.color}">{selectedObjectiveForCheck.title}</span>」に紐付け
-				</p>
-				<form method="POST" action="?/createReviewFromObjective" use:enhance={() => { return async ({ result }) => { showCreateCheckFromObjectiveModal = false; selectedObjectiveForCheck = null; }; }}>
-					<input type="hidden" name="objective_id" value={selectedObjectiveForCheck.id} />
-					<div class="space-y-4">
-						<div>
-							<label for="check_obj_title" class="block text-sm font-medium text-slate-700 mb-1">チェックタイトル</label>
-							<input type="text" id="check_obj_title" name="title" bind:value={newCheckFromObjectiveTitle} required class="w-full px-3 py-2 border border-slate-300 rounded-lg" />
-						</div>
-					</div>
-					<div class="flex justify-end gap-3 mt-6">
-						<button type="button" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg" onclick={() => showCreateCheckFromObjectiveModal = false}>キャンセル</button>
-						<button type="submit" class="px-4 py-2 text-sm text-white bg-blue-600 rounded-lg hover:bg-blue-700">作成</button>
-					</div>
 				</form>
 			</div>
 		</div>

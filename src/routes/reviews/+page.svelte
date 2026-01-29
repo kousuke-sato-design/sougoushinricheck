@@ -66,7 +66,7 @@
 	async function generateShareUrl(reviewId: string) {
 		loadingId = reviewId;
 		try {
-			const res = await fetch(`/api/reviews/${reviewId}/share`, { method: 'POST' });
+			const res = await fetch(`/api/reviews/${reviewId}/share`, { method: 'POST', credentials: 'include' });
 			const result = await res.json();
 
 			if (result.token) {
@@ -117,6 +117,7 @@
 			const res = await fetch(`/api/reviews/${notifyReviewId}/notify`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
 				body: JSON.stringify({
 					userIds: selectedUserIds,
 					message: notifyMessage,
@@ -148,7 +149,7 @@
 
 		deletingId = reviewId;
 		try {
-			const res = await fetch(`/api/reviews/${reviewId}`, { method: 'DELETE' });
+			const res = await fetch(`/api/reviews/${reviewId}`, { method: 'DELETE', credentials: 'include' });
 			const result = await res.json();
 
 			if (result.success) {

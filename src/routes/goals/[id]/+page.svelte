@@ -18,6 +18,15 @@
 	let editingTask = $state<any>(null);
 	let editingObjective = $state<any>(null);
 	let selectedColor = $state(data.goal.color);
+	let selectedAssigneeIds = $state<string[]>(data.goal.assignees?.map((a: { id: string }) => a.id) || []);
+
+	function toggleAssignee(userId: string) {
+		if (selectedAssigneeIds.includes(userId)) {
+			selectedAssigneeIds = selectedAssigneeIds.filter(id => id !== userId);
+		} else {
+			selectedAssigneeIds = [...selectedAssigneeIds, userId];
+		}
+	}
 
 	// Form states
 	let newObjective = $state('');
@@ -41,7 +50,7 @@
 	async function generateShareUrl(reviewId: string) {
 		loadingId = reviewId;
 		try {
-			const res = await fetch(`/api/reviews/${reviewId}/share`, { method: 'POST' });
+			const res = await fetch(`/api/reviews/${reviewId}/share`, { method: 'POST', credentials: 'include' });
 			const result = await res.json();
 			if (result.token) {
 				const shareUrl = `${window.location.origin}/p/${result.token}`;
@@ -90,6 +99,7 @@
 			const res = await fetch(`/api/reviews/${notifyReviewId}/notify`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
 				body: JSON.stringify({
 					userIds: selectedUserIds,
 					message: notifyMessage,
@@ -117,7 +127,7 @@
 		}
 		deletingId = reviewId;
 		try {
-			const res = await fetch(`/api/reviews/${reviewId}`, { method: 'DELETE' });
+			const res = await fetch(`/api/reviews/${reviewId}`, { method: 'DELETE', credentials: 'include' });
 			const result = await res.json();
 			if (result.success) {
 				window.location.reload();
@@ -327,7 +337,7 @@
 					</div>
 				</div>
 				{#if isAuthenticated}
-					<button type="button" onclick={() => showEditProject = true} class="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg shrink-0">
+					<button type="button" onclick={() => { selectedColor = data.goal.color; selectedAssigneeIds = data.goal.assignees?.map((a: { id: string }) => a.id) || []; showEditProject = true; }} class="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg shrink-0">
 						<svg class="w-4 h-4 sm:w-5 sm:h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
 					</button>
 				{/if}
@@ -763,12 +773,21 @@
 						<label class="block text-sm font-medium text-slate-700 mb-2">担当者</label>
 						<div class="flex flex-wrap gap-2">
 							{#each data.allUsers as user}
-								<label class="flex items-center gap-2 cursor-pointer px-3 py-1.5 rounded-full text-sm border {data.goal.assignees.some((a: { id: string }) => a.id === user.id) ? 'bg-blue-50 border-blue-300' : 'bg-slate-50 border-slate-200'}">
-									<input type="checkbox" name="assignees" value={user.id} checked={data.goal.assignees.some((a: { id: string }) => a.id === user.id)} class="sr-only" />
+								<button
+									type="button"
+									onclick={() => toggleAssignee(user.id)}
+									class="px-3 py-1.5 rounded-full text-sm border transition-colors {selectedAssigneeIds.includes(user.id) ? 'bg-blue-50 border-blue-300 text-blue-700' : 'bg-slate-50 border-slate-200 text-slate-600 hover:border-slate-300'}"
+								>
 									{user.name}
-								</label>
+									{#if selectedAssigneeIds.includes(user.id)}
+										<span class="ml-1">✓</span>
+									{/if}
+								</button>
 							{/each}
 						</div>
+						{#each selectedAssigneeIds as id}
+							<input type="hidden" name="assignees" value={id} />
+						{/each}
 					</div>
 					<div class="flex items-center justify-end gap-3 pt-4 border-t">
 						<button type="button" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg" onclick={() => showEditProject = false}>キャンセル</button>

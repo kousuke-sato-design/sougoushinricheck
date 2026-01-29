@@ -1,5 +1,6 @@
 <script lang="ts">
 	import AppLayout from '$lib/components/AppLayout.svelte';
+	import ContentPreview from '$lib/components/ContentPreview.svelte';
 	import type { PageData, ActionData } from './$types';
 
 	let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -10,6 +11,9 @@
 	let selectedGoalId = $state(data.preselectedGoalId || '');
 	let description = $state('');
 
+	// 編集モード表示切り替え: 'split' = 2カラム, 'edit' = 編集のみ, 'preview' = プレビューのみ
+	let editViewMode = $state<'split' | 'edit' | 'preview'>('split');
+
 	const emojis = [
 		'📄', '📝', '📋', '📌', '📎', '🎯', '🎬', '🎥', '📺', '🎵',
 		'💡', '⭐', '🔥', '✨', '💫', '🚀', '💪', '👍', '✅', '❌',
@@ -18,7 +22,7 @@
 </script>
 
 <AppLayout user={data.user}>
-	<div class="max-w-3xl mx-auto px-4">
+	<div class="max-w-5xl mx-auto px-4">
 		<div class="mb-4">
 			<a href="/reviews" class="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-700">
 				<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
@@ -85,14 +89,77 @@
 
 				<div class="mx-6 sm:mx-8 my-4 border-t border-slate-200"></div>
 
-				<!-- Content Editor -->
+				<!-- Content Editor with Preview -->
 				<div class="px-6 sm:px-8 py-4">
-					<textarea
-						bind:value={description}
-						rows="15"
-						placeholder="内容を入力..."
-						class="w-full px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none text-slate-700 text-base leading-relaxed"
-					></textarea>
+					<!-- 表示モード切り替えタブ -->
+					<div class="flex items-center gap-1 mb-4 p-1 bg-slate-100 rounded-lg w-fit">
+						<button
+							type="button"
+							onclick={() => editViewMode = 'edit'}
+							class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors {editViewMode === 'edit' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}"
+						>
+							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+							編集
+						</button>
+						<button
+							type="button"
+							onclick={() => editViewMode = 'split'}
+							class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors {editViewMode === 'split' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}"
+						>
+							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" /></svg>
+							分割
+						</button>
+						<button
+							type="button"
+							onclick={() => editViewMode = 'preview'}
+							class="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors {editViewMode === 'preview' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}"
+						>
+							<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+							プレビュー
+						</button>
+					</div>
+
+					<!-- 編集のみ表示 -->
+					{#if editViewMode === 'edit'}
+						<textarea
+							bind:value={description}
+							rows="25"
+							placeholder="内容を入力...&#10;&#10;URLを単独行に入力するとカード表示されます。&#10;例: https://youtube.com/watch?v=xxx"
+							class="w-full h-[600px] px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none text-slate-700 text-base leading-relaxed font-mono"
+						></textarea>
+
+					<!-- 分割表示 -->
+					{:else if editViewMode === 'split'}
+						<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+							<!-- 左: 編集エリア -->
+							<div>
+								<div class="flex items-center gap-2 mb-2">
+									<span class="text-sm font-medium text-slate-600">📝 編集</span>
+								</div>
+								<textarea
+									bind:value={description}
+									rows="20"
+									placeholder="内容を入力...&#10;&#10;URLを単独行に入力するとカード表示されます。&#10;例: https://youtube.com/watch?v=xxx"
+									class="w-full h-[500px] px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 resize-none text-slate-700 text-base leading-relaxed font-mono"
+								></textarea>
+							</div>
+							<!-- 右: プレビュー -->
+							<div>
+								<div class="flex items-center gap-2 mb-2">
+									<span class="text-sm font-medium text-slate-600">👁 プレビュー</span>
+								</div>
+								<div class="border border-slate-200 rounded-xl p-4 bg-slate-50 h-[500px] overflow-auto">
+									<ContentPreview content={description} />
+								</div>
+							</div>
+						</div>
+
+					<!-- プレビューのみ表示 -->
+					{:else}
+						<div class="border border-slate-200 rounded-xl p-6 bg-slate-50 min-h-[600px] overflow-auto">
+							<ContentPreview content={description} />
+						</div>
+					{/if}
 				</div>
 
 				<!-- Footer -->

@@ -123,6 +123,7 @@
 			const res = await fetch(`/api/reviews/${data.review.id}/notify`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
 				body: JSON.stringify({
 					userIds: selectedUserIds,
 					message: notifyMessage || `「${data.review.title}」の確認をお願いします。`,

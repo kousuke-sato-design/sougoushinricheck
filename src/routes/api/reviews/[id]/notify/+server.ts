@@ -42,11 +42,16 @@ export const POST: RequestHandler = async ({ params, request, locals, url }) => 
 		);
 	}
 
-	// Get users
-	const placeholders = userIds.map(() => '?').join(',');
+	// Get users - use named parameters for IN clause
+	const userParams: Record<string, string> = {};
+	const placeholders = userIds.map((id: string, index: number) => {
+		const key = `user${index}`;
+		userParams[key] = id;
+		return `:${key}`;
+	}).join(',');
 	const users = await db.execute(
 		`SELECT id, email, name FROM users WHERE id IN (${placeholders})`,
-		userIds
+		userParams
 	);
 
 	if (users.rows.length === 0) {

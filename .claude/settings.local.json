@@ -45,7 +45,9 @@
       "Bash(timeout:*)",
       "Bash(powershell -Command:*)",
       "Bash(netstat:*)",
-      "Bash(start cmd /c \"npm run dev\")"
+      "Bash(start cmd /c \"npm run dev\")",
+      "Bash(npx svelte-check:*)",
+      "Bash(wrangler pages deploy:*)"
     ]
   }
 }

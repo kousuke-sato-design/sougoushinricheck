@@ -2,6 +2,7 @@ import { json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import { db } from '$lib/server/db';
 import { sendEmail } from '$lib/server/email';
+import { nanoid } from 'nanoid';
 
 export const POST: RequestHandler = async ({ params, request, locals, url }) => {
 	if (!locals.user) {
@@ -104,6 +105,25 @@ export const POST: RequestHandler = async ({ params, request, locals, url }) => 
 			sentCount++;
 		} else {
 			errorCount++;
+		}
+
+		// 確認メール送信ログを記録 (成功・失敗とも残す)
+		try {
+			await db.execute(
+				`INSERT INTO confirmation_email_logs (id, review_id, recipient_id, sender_id, message, due_date, success)
+				 VALUES (:id, :reviewId, :recipientId, :senderId, :message, :dueDate, :success)`,
+				{
+					id: nanoid(),
+					reviewId,
+					recipientId: user.id as string,
+					senderId: locals.user.id,
+					message: message || null,
+					dueDate: dueDate || null,
+					success: sent ? 1 : 0
+				}
+			);
+		} catch (logErr) {
+			console.error('Failed to log confirmation email:', logErr);
 		}
 	}
 

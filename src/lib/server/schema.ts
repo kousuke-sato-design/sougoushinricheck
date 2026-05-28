@@ -85,8 +85,25 @@ CREATE TABLE IF NOT EXISTS notifications (
   FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE SET NULL
 );
 
+-- 確認メール送信ログ (確認依頼メールを送るたびに1受信者=1行で記録)
+CREATE TABLE IF NOT EXISTS confirmation_email_logs (
+  id TEXT PRIMARY KEY,
+  review_id TEXT NOT NULL,
+  recipient_id TEXT NOT NULL,
+  sender_id TEXT NOT NULL,
+  message TEXT,
+  due_date DATETIME,
+  success INTEGER DEFAULT 1,
+  sent_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (review_id) REFERENCES reviews(id) ON DELETE CASCADE,
+  FOREIGN KEY (recipient_id) REFERENCES users(id),
+  FOREIGN KEY (sender_id) REFERENCES users(id)
+);
+
 -- インデックス
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_cel_review_id ON confirmation_email_logs(review_id);
+CREATE INDEX IF NOT EXISTS idx_cel_sent_at ON confirmation_email_logs(sent_at);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_reviews_requester_id ON reviews(requester_id);
 CREATE INDEX IF NOT EXISTS idx_reviews_status ON reviews(status);

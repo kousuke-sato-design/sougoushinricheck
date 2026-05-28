@@ -20,6 +20,7 @@
 		{ href: '/goals', label: 'プロジェクト', icon: '🎯' },
 		{ href: '/reviews', label: 'ドキュメント', icon: '📋' },
 		{ href: '/comments', label: 'コメント', icon: '💬' },
+		{ href: '/history', label: '確認履歴', icon: '📨' },
 		{ href: '/calendar', label: 'カレンダー', icon: '📅' },
 		{ href: '/links', label: 'システムリンク', icon: '🔗' },
 		{ href: '/admin', label: '全体管理', icon: '📊' },

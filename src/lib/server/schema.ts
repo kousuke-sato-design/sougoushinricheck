@@ -60,14 +60,16 @@ CREATE TABLE IF NOT EXISTS comments (
   FOREIGN KEY (parent_id) REFERENCES comments(id)
 );
 
--- メール設定
+-- メール設定（複数Gmailアカウント対応）
 CREATE TABLE IF NOT EXISTS email_settings (
   id TEXT PRIMARY KEY,
   smtp_host TEXT NOT NULL,
   smtp_port INTEGER NOT NULL,
   email_address TEXT NOT NULL,
   app_password TEXT NOT NULL,
+  from_name TEXT,
   is_active INTEGER DEFAULT 1,
+  is_default INTEGER DEFAULT 0,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

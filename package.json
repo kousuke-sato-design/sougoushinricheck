@@ -33,6 +33,7 @@
 		"nanoid": "^5.1.5",
 		"nodemailer": "^7.0.12",
 		"resend": "^6.9.0",
-		"svelte-dnd-action": "^0.9.54"
+		"svelte-dnd-action": "^0.9.54",
+		"worker-mailer": "^1.2.1"
 	}
 }

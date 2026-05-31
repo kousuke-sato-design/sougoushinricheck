@@ -1,5 +1,4 @@
 import { db } from './db';
-import nodemailer from 'nodemailer';
 
 interface EmailSettings {
 	smtp_host: string;
@@ -97,19 +96,25 @@ export async function sendEmail(
 	}
 
 	try {
-		const transporter = nodemailer.createTransport({
+		// Cloudflare Workers では nodemailer の SMTP は動かない（生ソケット/DNS非対応）。
+		// worker-mailer は cloudflare:sockets を使って Gmail SMTP に直接接続できる。
+		// cloudflare:sockets はビルド時(Node)に存在しないため、実行時に動的importする。
+		const { WorkerMailer } = await import('worker-mailer');
+		const mailer = await WorkerMailer.connect({
+			credentials: {
+				username: settings.email_address,
+				password: settings.app_password
+			},
+			authType: 'plain',
 			host: settings.smtp_host,
 			port: settings.smtp_port,
 			secure: settings.smtp_port === 465,
-			auth: {
-				user: settings.email_address,
-				pass: settings.app_password
-			}
+			startTls: settings.smtp_port !== 465
 		});
 
-		await transporter.sendMail({
-			from: `レビュー管理システム <${settings.email_address}>`,
-			to,
+		await mailer.send({
+			from: { name: 'レビュー管理システム', email: settings.email_address },
+			to: { email: to },
 			subject,
 			text,
 			html: html || text
